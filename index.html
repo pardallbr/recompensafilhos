@@ -56,6 +56,8 @@ try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);for(var k in
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 var kid='larissa',off=0,view='board',unlocked=false,pm=false,pend=false;
 if(S.ver!==2){S.done={};S.ver=2;save();}
+function gen(){var a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',o='';try{var u=new Uint32Array(8);crypto.getRandomValues(u);for(var i=0;i<8;i++)o+=a[u[i]%a.length];}catch(e){for(var j=0;j<8;j++)o+=a[Math.floor(Math.random()*a.length)];}return o;}
+var fgv=false;
 var PAL=['#d946a8','#0ea5a4','#f59e0b','#3b82f6','#8b5cf6','#ef4444','#16a34a','#0891b2'];
 if(!S.kids)S.kids=[{id:'larissa',name:'Larissa'},{id:'leo',name:'Léo'}];
 S.kids.forEach(function(k,i){if(!k.c)k.c=PAL[i%PAL.length];});
@@ -65,6 +67,7 @@ function esc(x){return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').re
 var exb=[{n:'Ajudar a guardar as compras',p:2},{n:'Ajudar a cozinhar',p:2},{n:'Ajudar a lavar o carro',p:3}];
 if(!S.extras)S.extras={larissa:exb.slice(),leo:exb.slice()};
 if(!S.bonus)S.bonus={};
+if(!S.rc){S.rc=gen();save();}
 function bToggle(date,i){var key=date+'|'+kid+'|'+i;if(S.bonus[key])delete S.bonus[key];else S.bonus[key]=1;save();render();}
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function monday(n){var d=new Date();d.setHours(12,0,0,0);var w=(d.getDay()+6)%7;d.setDate(d.getDate()-w+n*7);return d;}
@@ -180,8 +183,16 @@ function parseEx(id){return document.getElementById(id).value.split('\n').map(fu
 function renderCfg(app){
   var h='<div class="card"><b style="font-size:1.3rem">Área dos pais</b>';
   if(!unlocked){
-    h+='<label for="pin">Digite o PIN (padrão: 1234)</label><input id="pin" type="password" inputmode="numeric" autocomplete="off"><p id="err" class="hide" style="color:#dc2626">PIN incorreto.</p><div style="margin-top:12px;display:flex;gap:8px"><button class="btn p" id="ok">Entrar</button><button class="btn" id="back">Voltar</button></div></div>';
+    if(fgv){
+      h+='<label for="rc">Chave mestre</label><input id="rc" autocomplete="off" autocapitalize="characters"><label for="np2">Novo PIN</label><input id="np2" type="password" inputmode="numeric" autocomplete="off"><p id="err" class="hide" style="color:#dc2626">Chave incorreta ou PIN vazio.</p><div style="margin-top:12px;display:flex;gap:8px"><button class="btn p" id="rd">Redefinir PIN</button><button class="btn" id="back">Voltar</button></div></div>';
+      app.innerHTML=h;
+      document.getElementById('rd').onclick=function(){var k=document.getElementById('rc').value.trim().toUpperCase(),n=document.getElementById('np2').value.trim();if(n&&k===String(S.rc).toUpperCase()){S.pin=n;save();fgv=false;unlocked=true;render();}else document.getElementById('err').className='';};
+      document.getElementById('back').onclick=function(){fgv=false;render();};
+      return;
+    }
+    h+='<label for="pin">Digite o PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off"><p id="err" class="hide" style="color:#dc2626">PIN incorreto.</p><div style="margin-top:12px;display:flex;gap:8px"><button class="btn p" id="ok">Entrar</button><button class="btn" id="back">Voltar</button><button class="btn" id="fg">Esqueci o PIN</button></div></div>';
     app.innerHTML=h;
+    document.getElementById('fg').onclick=function(){fgv=true;render();};
     document.getElementById('ok').onclick=function(){if(document.getElementById('pin').value===S.pin){unlocked=true;if(pend){pm=true;pend=false;view='board';}render();}else document.getElementById('err').className='';};
     document.getElementById('back').onclick=function(){pend=false;view='board';render();};
     return;
@@ -198,6 +209,7 @@ function renderCfg(app){
   h+='<label for="rw">Recompensa do mês</label><input id="rw" value="'+S.reward.replace(/"/g,'&quot;')+'">';
   h+='<label for="gl">Meta para ganhar a recompensa (% das tarefas do mês)</label><input id="gl" type="number" min="10" max="100" value="'+S.goal+'">';
   h+='<label for="em">E-mail para receber o relatório (pode separar vários com vírgula)</label><input id="em" type="email" multiple placeholder="voce@email.com" value="'+(S.em||'').replace(/"/g,'&quot;')+'">';
+  h+='<label for="rcf">Chave mestre (recupera o PIN se você esquecer; anote e guarde fora do tablet)</label><input id="rcf" autocomplete="off" value="'+esc(S.rc)+'">';
   h+='<label for="np">Novo PIN (deixe vazio para manter)</label><input id="np" type="password" inputmode="numeric">';
   h+='<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn p" id="sv">Salvar</button><button class="btn" id="back">Voltar</button><button class="btn" id="bk">Baixar backup</button><label class="btn" style="margin:0;cursor:pointer">Restaurar backup<input id="rf" type="file" accept=".json,application/json" style="display:none"></label><button class="btn" id="rs">Zerar todas as marcações</button></div></div>';
   app.innerHTML=h;
@@ -213,6 +225,7 @@ function renderCfg(app){
   }
   document.getElementById('sv').onclick=function(){
     collect();
+    var rcv=document.getElementById('rcf').value.trim();if(rcv)S.rc=rcv;
     var np=document.getElementById('np').value.trim();if(np)S.pin=np;
     save();view='board';render();
   };
