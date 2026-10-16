@@ -26,12 +26,12 @@ table{border-collapse:separate;border-spacing:6px;width:100%;min-width:560px}
 th{font-weight:600;color:var(--mut);font-size:.95rem;padding-bottom:2px}
 th.today{color:var(--c);font-weight:700}
 td.t{font-size:1.15rem;font-weight:600;text-align:left;padding-right:8px;min-width:150px}
-.badge{display:inline-block;font-size:.72rem;padding:2px 6px;border-radius:6px;background:var(--soft);color:var(--c);margin-left:6px;vertical-align:middle}
 .cell{width:100%;height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);cursor:pointer;font:700 1.25rem 'Fredoka',sans-serif;line-height:1;color:#fff}
 .cell.on{background:var(--c);border-color:var(--c)}
 .cell.td{border-color:var(--c)}.cell.l2{filter:brightness(1.12)}.cell.l1{filter:brightness(1.3)}.cell.pn.on{background:#ef4444;border-color:#ef4444}.cell.l0{background:#9ca3af;border-color:#9ca3af;filter:none}
-.cell.l-1{background:var(--soft);border-color:var(--line);color:var(--mut);filter:none}
-.pmb{background:#fef3c7;color:#7c2d12;border-radius:14px;padding:10px 14px;margin-top:14px;font-weight:600;text-align:center}.cel{position:fixed;inset:0;z-index:99;background:rgba(24,12,60,.92);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px}
+.cell.off{background:var(--bg);border-color:var(--line);color:var(--mut);cursor:default;font-size:.85rem}
+.pmb{background:#fef3c7;color:#7c2d12;border-radius:14px;padding:10px 14px;margin-top:14px;font-weight:600;text-align:center}
+.cel{position:fixed;inset:0;z-index:99;background:rgba(24,12,60,.92);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px}
 .cel .box{position:relative;z-index:2;text-align:center;color:#fff;max-width:520px}
 .cel h2{font-size:2.4rem;margin:8px 0}
 .cel p{margin:6px 0;font-size:1.3rem}
@@ -64,32 +64,510 @@ textarea{min-height:120px}
 <script>
 var KEY='quadro-rotinas-v1';
 var DIAS=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
-var base=['Arrumar a cama','Escovar os dentes manhã','Remédios manhã','Escovar os dentes após o almoço','Escovar os dentes noite','Tomar banho','Remédios tarde','Arrumar material | util','Lancheira | util','Dobrar roupa trocada','Guardar os brinquedos','Fazer a lição | util','Responsabilidade'];
-var S={tasks:{larissa:base.slice(),leo:base.slice()},reward:'Recompensa ainda a definir (pais)',goal:80,pin:'1234',done:{}};
-try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}}catch(e){}
+
+// Configuração padrão: tarefas escolares com modos de folga adequados
+var base=[
+  {n:'Arrumar a cama',mode:'all'},
+  {n:'Escovar os dentes manhã',mode:'all'},
+  {n:'Remédios manhã',mode:'all'},
+  {n:'Escovar os dentes após o almoço',mode:'all'},
+  {n:'Escovar os dentes noite',mode:'all'},
+  {n:'Tomar banho',mode:'all'},
+  {n:'Remédios tarde',mode:'all'},
+  {n:'Arrumar material',mode:'dom-qui'}, // Domingo a Quinta (preparar para o dia seguinte)
+  {n:'Lancheira',mode:'dom-qui'},        // Domingo a Quinta
+  {n:'Dobrar roupa trocada',mode:'all'},
+  {n:'Guardar os brinquedos',mode:'all'},
+  {n:'Fazer a lição',mode:'seg-sex'},    // Segunda a Sexta
+  {n:'Responsabilidade',mode:'all'}
+];
+
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},pen:{},bd:{},pc:{},pin:'1234'};
+try{
+  var raw=localStorage.getItem(KEY);
+  if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
+}catch(e){}
+
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-var kid='larissa',off=0,view='board',unlocked=false,pm=false,pend=false;
-if(S.ver!==2){S.done={};S.ver=2;save();}
-function gen(){var a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',o='';try{var u=new Uint32Array(8);crypto.getRandomValues(u);for(var i=0;i<8;i++)o+=a[u[i]%a.length];}catch(e){for(var j=0;j<8;j++)o+=a[Math.floor(Math.random()*a.length)];}return o;}
-var fgv=false;
+var kid='larissa',off=0,view='board',unlocked=false,pm=false,pend=false,fgv=false;
+
 var PAL=['#d946a8','#0ea5a4','#f59e0b','#3b82f6','#8b5cf6','#ef4444','#16a34a','#0891b2'];
-if(!S.kids)S.kids=[{id:'larissa',name:'Larissa'},{id:'leo',name:'Léo'}];
+if(!S.kids||!S.kids.length)S.kids=[{id:'larissa',name:'Larissa'},{id:'leo',name:'Léo'}];
 S.kids.forEach(function(k,i){if(!k.c)k.c=PAL[i%PAL.length];});
-function nm(id){var f=S.kids.filter(function(k){return k.id===id;})[0];return f?f.name:id;}
-function ks(id){var f=S.kids.filter(function(k){return k.id===id;})[0];return '--c:'+(f?f.c:PAL[0])+';';}
-function esc(x){return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
 var exb=[{n:'Ajudar a guardar as compras',p:2},{n:'Ajudar a cozinhar',p:2},{n:'Ajudar a lavar o carro',p:3}];
 var behD=[{n:'Obedecer',p:10},{n:'Atividade física',p:10},{n:'Respeitar',p:10},{n:'Ser educado',p:10},{n:'Ser gentil',p:2,x:1},{n:'Ajudar alguém',p:2,x:1}];
 var penD=[{n:'Chorar sem motivo',p:4},{n:'Brigar',p:5},{n:'Ficar na TV/computador/celular sem permissão',p:5}];
 var pmt;
-function tInfo(r){var a=String(r).split('|');return{n:a[0].trim(),u:/util|útil|seg-sex|escola|aula/i.test(a[1]||'')};}
-function isWknd(d){var w=d.getDay();return w===0||w===6;}
-function tApp(r,d){var ti=tInfo(r);return!(ti.u&&isWknd(d));}
+
+function gen(){
+  var a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',o='';
+  try{var u=new Uint32Array(8);crypto.getRandomValues(u);for(var i=0;i<8;i++)o+=a[u[i]%a.length];}
+  catch(e){for(var j=0;j<8;j++)o+=a[Math.floor(Math.random()*a.length)];}
+  return o;
+}
+
+function normalizeTaskMode(m){
+  if(!m||m==='all')return 'all';
+  if(/dom.*qui/i.test(m))return 'dom-qui';
+  if(/seg.*sex|uteis|dia/i.test(m))return 'seg-sex';
+  if(/sab.*dom|fds|fim/i.test(m))return 'sab-dom';
+  return 'all';
+}
+
+function isTaskActiveOnDate(mode, d){
+  var day=d.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  mode=normalizeTaskMode(mode);
+  if(mode==='dom-qui') return day>=0 && day<=4; // Domingo a Quinta
+  if(mode==='seg-sex') return day>=1 && day<=5; // Segunda a Sexta
+  if(mode==='sab-dom') return day===0 || day===6; // Fim de semana
+  return true; // 'all'
+}
+
+function modeLabel(mode){
+  mode=normalizeTaskMode(mode);
+  if(mode==='dom-qui') return 'Dom-Qui';
+  if(mode==='seg-sex') return 'Seg-Sex';
+  if(mode==='sab-dom') return 'Sáb-Dom';
+  return '';
+}
+
 function ensure(){
-  if(!S.per)S.per='mes';if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};
-  if(!S.rwMByKid)S.rwMByKid={};if(!S.rwSByKid)S.rwSByKid={};if(!S.goalByKid)S.goalByKid={};
-  var dM=S.rewardM||S.reward||'Recompensa mensal ainda a definir (pais)',dS=S.rewardS||S.reward||'Recompensa semanal ainda a definir (pais)',dG=S.goal||80;
+  if(!S.per)S.per='mes';
+  if(!S.pin)S.pin='1234';
+  if(!S.rc){S.rc=gen();save();}
+  if(!S.tasks)S.tasks={};
+  if(!S.rewardsM)S.rewardsM={};
+  if(!S.rewardsS)S.rewardsS={};
+  if(!S.goals)S.goals={};
+  if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};if(!S.extras)S.extras={};if(!S.bonus)S.bonus={};
   S.kids.forEach(function(k){
-    if(!S.beh[k.id])S.beh[k.id]=behD.slice();if(!S.pen[k.id])S.pen[k.id]=penD.slice();
-    if(!S.rwMByKid[k.id])S.rwMByKid[k.id]=dM;if(!S.rwSByKid[k.id])S.rwSByKid[k.id]=dS;if(!S.goalByKid[k.id])S.goalByKid[k.id]=dG;
-    if(S.tasks[k.id]&&!S.uMig){S.tasks[k.id]=S.tasks[k.id].map(function(t){return/^(Arrumar material|Lanche
+    if(!S.tasks[k.id]){
+      S.tasks[k.id]=base.map(function(t){return{n:t.n,m:t.mode};});
+    }else{
+      S.tasks[k.id]=S.tasks[k.id].map(function(t){
+        if(typeof t==='string'){
+          var isMat=/lancheira|material/i.test(t);
+          var isLic=/lição|licao/i.test(t);
+          return {n:t, m:isMat?'dom-qui':(isLic?'seg-sex':'all')};
+        }
+        return {n:t.n, m:t.m||(t.d?'seg-sex':'all')};
+      });
+    }
+    if(!S.rewardsM[k.id])S.rewardsM[k.id]=S.rewardM||S.reward||'Recompensa mensal a definir';
+    if(!S.rewardsS[k.id])S.rewardsS[k.id]=S.rewardS||S.reward||'Recompensa semanal a definir';
+    if(!S.goals[k.id])S.goals[k.id]=S.goal||80;
+    if(!S.extras[k.id])S.extras[k.id]=exb.slice();
+    if(!S.beh[k.id])S.beh[k.id]=behD.slice();
+    if(!S.pen[k.id])S.pen[k.id]=penD.slice();
+  });
+}
+ensure();
+
+function nm(id){var f=S.kids.filter(function(k){return k.id===id;})[0];return f?f.name:id;}
+function ks(id){var f=S.kids.filter(function(k){return k.id===id;})[0];return '--c:'+(f?f.c:PAL[0])+';';}
+function esc(x){return String(x||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function curRw(k){return S.per==='sem'?(S.rewardsS[k]||''):(S.rewardsM[k]||'');}
+function curGoal(k){return S.goals[k]||80;}
+
+function bToggle(date,i){var key=date+'|'+kid+'|'+i;if(S.bonus[key])delete S.bonus[key];else S.bonus[key]=1;save();render();}
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function monday(n){var d=new Date();d.setHours(12,0,0,0);var w=(d.getDay()+6)%7;d.setDate(d.getDate()-w+n*7);return d;}
+function weekDays(){var m=monday(off),a=[];for(var i=0;i<7;i++){var d=new Date(m);d.setDate(m.getDate()+i);a.push(d);}return a;}
+function fmt(d){return d.getDate()+'/'+(d.getMonth()+1);}
+
+function gate(fn){if(pm){fn();return;}pend=true;unlocked=false;view='cfg';render();}
+
+function toggle(date,i){
+  var key=date+'|'+kid+'|'+i,v=S.done[key];
+  var n=v===undefined?3:v-1;
+  if(n<0)delete S.done[key];else S.done[key]=n;
+  save();render();
+}
+
+function monthSum(k){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  var pre=y+'-'+String(m+1).padStart(2,'0');
+  var todayNum=now.getDate();
+  var dim=new Date(y,m+1,0).getDate();
+  var t=S.tasks[k]||[],ex=S.extras[k]||[],bh=S.beh[k]||[],pe=S.pen[k]||[];
+  var o={tk:0,xm:0,bh:0,pn:0};
+
+  for(var a in S.done){if(a.indexOf(pre)===0&&a.split('|')[1]===k)o.tk+=S.done[a];}
+  for(var a in S.bonus){var q=a.split('|');if(a.indexOf(pre)===0&&q[1]===k&&ex[+q[2]])o.xm+=ex[+q[2]].p;}
+  for(var a in S.bd){var q=a.split('|');if(a.indexOf(pre)===0&&q[1]===k&&bh[+q[2]])o.bh+=bh[+q[2]].p;}
+  for(var a in S.pc){var q=a.split('|');if(a.indexOf(pre)===0&&q[1]===k&&pe[+q[2]])o.pn+=S.pc[a]*pe[+q[2]].p;}
+
+  var maxDecor=0, maxTotal=0;
+  for(var day=1;day<=dim;day++){
+    var dt=new Date(y,m,day);
+    var tDay=0;
+    t.forEach(function(tk){if(isTaskActiveOnDate(tk.m, dt))tDay+=3;});
+    var behDay=bh.reduce(function(x,e){return x+(e.x?0:e.p);},0);
+    maxTotal+=(tDay+behDay);
+    if(day<=todayNum)maxDecor+=(tDay+behDay);
+  }
+
+  o.net=o.tk+o.xm+o.bh-o.pn;
+  o.maxDecor=maxDecor;
+  o.maxTotal=maxTotal;
+  o.pctDecor=maxDecor?Math.max(0,Math.round(o.net/maxDecor*100)):0;
+  o.pctProj=maxTotal?Math.max(0,Math.round(o.net/maxTotal*100)):0;
+  return o;
+}
+
+function stats(){
+  var r=calc(kid,weekDays()),m=monthSum(kid);
+  var g=curGoal(kid),w=S.per==='sem';
+  var wPct=r.maxNet?Math.max(0,Math.round((r.stars+r.beh+r.bonus-r.pen)/r.maxNet*100)):0;
+  return{
+    wk:r.stars+r.beh,
+    wkMax:r.maxNet,
+    xb:r.bonus,
+    pn:r.pen,
+    pct:w?wPct:m.pctDecor,
+    pctProj:m.pctProj,
+    xm:w?r.bonus:m.xm,
+    mpn:w?r.pen:m.pn,
+    goal:g,
+    goalHit:w?(r.maxNet&&wPct>=g):(m.maxDecor&&m.pctDecor>=g)
+  };
+}
+
+function celebrate(name,reward){
+  var o=document.createElement('div');o.className='cel';
+  var h='<div class="box"><div class="trf">🏆</div><h2>Parabéns, '+esc(name)+'!</h2><p>Você bateu a meta!</p><div class="rw">🎁 '+esc(reward)+'</div><button class="btn p" id="celx">Que legal! 🎉</button></div>';
+  var cols=['#fde047','#f472b6','#34d399','#60a5fa','#fb923c','#a78bfa'],em=['⭐','🎉','✨','🎈'];
+  for(var i=0;i<70;i++){var q=Math.random()<.5;h+='<i class="cf'+(q?' sq':'')+'" style="left:'+(Math.random()*100)+'vw;animation-delay:'+(Math.random()*2.5)+'s;animation-duration:'+(2.5+Math.random()*2.5)+'s;'+(q?'background:'+cols[i%6]:'')+'">'+(q?'':em[i%4])+'</i>';}
+  o.innerHTML=h;document.body.appendChild(o);
+  function close(){try{o.remove();}catch(x){}}
+  o.querySelector('#celx').onclick=close;setTimeout(close,20000);
+  try{var A=new(window.AudioContext||window.webkitAudioContext)(),t=A.currentTime;[523,659,784,1047].forEach(function(f,i){var s=A.createOscillator(),g=A.createGain();s.frequency.value=f;s.type='triangle';g.gain.setValueAtTime(.15,t+i*.15);g.gain.exponentialRampToValueAtTime(.001,t+i*.15+.3);s.connect(g);g.connect(A.destination);s.start(t+i*.15);s.stop(t+i*.15+.35);});}catch(x){}
+}
+
+function render(){
+  var app=document.getElementById('app');
+  app.className='kc';app.style.cssText=ks(kid);
+  if(view==='cfg'){return renderCfg(app);}
+  if(view==='rep'){return renderRep(app);}
+  var t=S.tasks[kid]||[],days=weekDays(),td=iso(new Date()),st=stats(),rwTxt=curRw(kid);
+  var h='<div class="tabs">';
+  S.kids.forEach(function(kk){var k=kk.id;h+='<button class="tab kc'+(k===kid?' on':'')+'" style="'+ks(k)+'" data-k="'+k+'">'+esc(kk.name)+'</button>';});
+  h+='</div><div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Semana de '+fmt(days[0])+' a '+fmt(days[6])+'</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div>';
+  h+='<div class="scroll"><table><tr><th></th>';
+  days.forEach(function(d,i){var s=iso(d);h+='<th class="'+(s===td?'today':'')+'">'+DIAS[i]+'<br>'+fmt(d)+'</th>';});
+  h+='</tr>';
+  t.forEach(function(tk,i){
+    var lbl=modeLabel(tk.m);
+    h+='<tr><td class="t">'+esc(tk.n)+(lbl?' <small style="color:var(--mut);font-weight:400">('+lbl+')</small>':'')+'</td>';
+    days.forEach(function(d){
+      var s=iso(d),active=isTaskActiveOnDate(tk.m, d);
+      if(!active){
+        h+='<td><button class="cell off" disabled>Folga</button></td>';
+      }else{
+        var v=S.done[s+'|'+kid+'|'+i],on=v!==undefined,fut=s>td;
+        h+='<td><button class="cell'+(on?' on l'+v:'')+(s===td?' td':'')+'" data-d="'+s+'" data-i="'+i+'"'+(fut?' disabled':'')+' aria-label="'+esc(tk.n)+' '+DIAS[days.indexOf(d)]+'">'+(v===0?'✖':on?'⭐'+v:'')+'</button></td>';
+      }
+    });
+    h+='</tr>';
+  });
+  h+='</table></div></div>';
+
+  var ex=S.extras[kid]||[];
+  if(ex.length){
+    h+='<div class="card"><b>Extras</b> <span class="leg">(não são obrigação: valem estrelas de bônus)</span><div class="scroll"><table><tr><th></th>';
+    days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});
+    h+='</tr>';
+    ex.forEach(function(e,i){
+      h+='<tr><td class="t">'+esc(e.n)+' (+'+e.p+')</td>';
+      days.forEach(function(d){var s=iso(d),on=S.bonus[s+'|'+kid+'|'+i],fut=s>td;
+        h+='<td><button class="cell xb'+(on?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-x="'+i+'"'+(fut?' disabled':'')+' aria-label="Extra '+esc(e.n)+'">'+(on?'+'+e.p:'')+'</button></td>';});
+      h+='</tr>';});
+    h+='</table></div></div>';
+  }
+
+  var bh=S.beh[kid]||[],pe=S.pen[kid]||[];
+  if(bh.length){
+    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(os pais marcam; vale pontos)</span><div class="scroll"><table><tr><th></th>';
+    days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
+    bh.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' ('+(e.x?'bônus ':'')+e.p+')</td>';
+      days.forEach(function(d){var s=iso(d),on=S.bd[s+'|'+kid+'|'+i];
+        h+='<td><button class="cell bh'+(on?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(on?'+'+e.p:'')+'</button></td>';});
+      h+='</tr>';});
+    h+='</table></div></div>';
+  }
+
+  if(pe.length){
+    h+='<div class="card"><b>Perde pontos</b> <span class="leg">(os pais marcam cada ocorrência)</span><div class="scroll"><table><tr><th></th>';
+    days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
+    pe.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' (−'+e.p+')</td>';
+      days.forEach(function(d){var s=iso(d),c=S.pc[s+'|'+kid+'|'+i]||0;
+        h+='<td><button class="cell pn'+(c?' on':'')+(s===td?' td':'')+'" data-d="'+s+'" data-q="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(c?'−'+(c*e.p):'')+'</button></td>';});
+      h+='</tr>';});
+    h+='</table></div></div>';
+  }
+
+  if(pm)h+='<div class="pmb">Modo pais ativo. <button class="btn" id="pmx" style="margin-left:8px;padding:6px 12px">Sair</button></div>';
+
+  var wp=st.wkMax?Math.round(Math.max(0,st.wk-st.pn)/st.wkMax*100):0;
+  h+='<div class="card"><b>Esta semana</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' de bônus':'')+(st.pn?' − '+st.pn+' de descontos':'')+'</span><span>'+wp+'%</span></div></div>';
+
+  var isSem=S.per==='sem';
+  h+='<div class="card"><b>'+(isSem?'Meta da semana':'Meta do mês')+'</b>'
+    +'<div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/st.goal*100))+'%"></i></div>'
+    +'<div class="row"><span>'+st.pct+'% '+(isSem?'concluído':'de aproveitamento')+(st.xm?' (+'+st.xm+' bônus)':'')+(st.mpn?' (−'+st.mpn+' descontos)':'')+'</span><span>meta: '+st.goal+'%</span></div>';
+  if(!isSem){
+    h+='<div class="row" style="font-size:0.85rem;margin-top:4px;color:var(--mut)"><span>Ritmo geral no mês inteiro: '+st.pctProj+'%</span></div>';
+  }
+  h+='<div class="reward'+(st.goalHit?' ok':'')+'">'+(st.goalHit?'🎉 Meta batida! Recompensa: ':'🎁 Recompensa '+(isSem?'da semana':'do mês')+': ')+esc(rwTxt).replace(/\n/g,'<br>')+'</div>'+(st.goalHit?'<div style="margin-top:10px"><button class="btn p" id="cel2">🎉 Comemorar</button></div>':'')+'</div>';
+
+  h+='<div class="card leg"><b style="color:var(--ink)">Pontuação: toque na tarefa</b><br>1x: ⭐3 (sem pedir) | 2x: ⭐2 (pediu 1x) | 3x: ⭐1 (pediu 2x)<br>4x: ✖ (pediu 3x - 0 estrelas) | 5x: limpa a tarefa</div>';
+  h+='<div class="foot" style="gap:10px;flex-wrap:wrap"><button class="btn" id="rep">Relatório da semana</button><button class="btn" id="cfg">Área dos pais</button></div>';
+
+  app.innerHTML=h;
+
+  var c2=document.getElementById('cel2');if(c2)c2.onclick=function(){celebrate(nm(kid),rwTxt);};
+  if(st.goalHit&&off===0){
+    var ck=kid+'|'+(isSem?iso(monday(0)):iso(new Date()).slice(0,7));
+    if(!S.cel)S.cel={};
+    if(!S.cel[ck]){S.cel[ck]=1;save();celebrate(nm(kid),rwTxt);}
+  }
+  app.querySelectorAll('.tab').forEach(function(b){b.onclick=function(){kid=b.dataset.k;render();};});
+  app.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){off+=+b.dataset.w;render();};});
+  app.querySelectorAll('.cell:not(.xb):not(.bh):not(.pn):not(.off)').forEach(function(b){b.onclick=function(){toggle(b.dataset.d,b.dataset.i);};});
+  app.querySelectorAll('.bh').forEach(function(b){b.onclick=function(){gate(function(){var key=b.dataset.d+'|'+kid+'|'+b.dataset.b;if(S.bd[key])delete S.bd[key];else S.bd[key]=1;save();render();});};});
+  app.querySelectorAll('.pn').forEach(function(b){b.onclick=function(){gate(function(){var key=b.dataset.d+'|'+kid+'|'+b.dataset.q,c=(S.pc[key]||0)+1;if(c>5)delete S.pc[key];else S.pc[key]=c;save();render();});};});
+  var px=document.getElementById('pmx');if(px)px.onclick=function(){pm=false;clearTimeout(pmt);render();};
+  app.querySelectorAll('.xb').forEach(function(b){b.onclick=function(){bToggle(b.dataset.d,b.dataset.x);};});
+  document.getElementById('cfg').onclick=function(){unlocked=false;fgv=false;view='cfg';render();};
+  document.getElementById('rep').onclick=function(){view='rep';render();};
+}
+
+function calc(k,days){
+  var t=S.tasks[k]||[],td=iso(new Date()),el=0,stars=0,full=0,free=0;
+  var bh=S.beh[k]||[],pe=S.pen[k]||[];
+  var beh=0,behMax=0,pen=0;
+  var perBeh=bh.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[],perTask=t.map(function(){return 0;});
+  var maxPossivel=0;
+
+  days.forEach(function(d){
+    var s=iso(d);
+    if(s>td){perDay.push(null);return;}
+    el++;var c=0,all=true,activeTasks=0;
+    t.forEach(function(tk,i){
+      if(!isTaskActiveOnDate(tk.m, d))return;
+      activeTasks++;
+      var v=S.done[s+'|'+k+'|'+i];
+      if(v===undefined){all=false;return;}
+      c+=v;perTask[i]+=v;if(v===3)free++;
+    });
+    maxPossivel+=activeTasks*3;
+    stars+=c;if(activeTasks>0&&all)full++;perDay.push(c);
+
+    bh.forEach(function(e,i){
+      if(!e.x)behMax+=e.p;
+      if(S.bd[s+'|'+k+'|'+i]){beh+=e.p;perBeh[i]+=e.p;}
+    });
+    pe.forEach(function(e,i){
+      var n=S.pc[s+'|'+k+'|'+i]||0;
+      pen+=n*e.p;perPen[i]+=n;
+    });
+  });
+
+  var bonus=0,ex=S.extras[k]||[];
+  days.forEach(function(d){
+    var s=iso(d);if(s>td)return;
+    ex.forEach(function(e,i){if(S.bonus[s+'|'+k+'|'+i])bonus+=e.p;});
+  });
+
+  return{t:t,el:el,stars:stars,max:maxPossivel,maxNet:maxPossivel+behMax,full:full,free:free,bonus:bonus,beh:beh,behMax:behMax,pen:pen,perBeh:perBeh,perPen:perPen,perDay:perDay,perTask:perTask};
+}
+
+function renderRep(app){
+  var days=weekDays(),h='<div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Relatório de '+fmt(days[0])+' a '+fmt(days[6])+'</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div></div>';
+  S.kids.forEach(function(kk){
+    var k=kk.id;
+    var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
+    h+='<div class="card kc" style="'+ks(k)+'"><b style="font-size:1.3rem;color:var(--c)">'+esc(kk.name)+'</b>';
+    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ <b>'+r.stars+'</b> de '+r.max+' estrelas ('+p+'%)<br>✅ Todas tarefas: <b>'+r.full+'</b> de '+r.el+'<br>🙌 Sem pedir: <b>'+r.free+'</b><br>🎁 Bônus: <b>'+r.bonus+'</b><br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+'<br>⚠️ Descontos: <b>−'+r.pen+'</b><br>🏆 Total: <b>'+(r.stars+r.beh+r.bonus-r.pen)+'</b></p>';
+    h+='<div class="bar"><i style="width:'+p+'%"></i></div>';
+    h+='<div class="scroll"><table style="min-width:480px"><tr><th></th>';
+    days.forEach(function(d,i){h+='<th>'+DIAS[i]+'</th>';});
+    h+='</tr><tr><td class="t">Estrelas por dia</td>';
+    r.perDay.forEach(function(c){h+='<td style="text-align:center;font-weight:700">'+(c===null?'–':c)+'</td>';});
+    h+='</tr></table></div><p style="margin:10px 0 4px;font-weight:600">Por tarefa</p>';
+    r.t.forEach(function(tk,i){
+      var maxT=days.reduce(function(acc,d){return acc+(!isTaskActiveOnDate(tk.m,d)||iso(d)>iso(new Date())?0:3);},0);
+      var lbl=modeLabel(tk.m);
+      h+='<div class="row" style="color:var(--ink)"><span>'+esc(tk.n)+(lbl?' ('+lbl+')':'')+'</span><span>'+r.perTask[i]+' de '+maxT+' estrelas</span></div>';
+    });
+    (S.beh[k]||[]).forEach(function(e,i){h+='<div class="row" style="color:var(--ink)"><span>'+esc(e.n)+'</span><span>'+r.perBeh[i]+(e.x?'':' de '+r.el*e.p)+' pontos</span></div>';});
+    (S.pen[k]||[]).forEach(function(e,i){if(r.perPen[i])h+='<div class="row" style="color:#dc2626"><span>'+esc(e.n)+'</span><span>'+r.perPen[i]+'× (−'+r.perPen[i]*e.p+')</span></div>';});
+    h+='</div>';
+  });
+  var msg=buildMsg(days),to=encodeURIComponent((S.em||'').trim()),su=encodeURIComponent('Relatório de rotinas, semana de '+fmt(days[0])+' a '+fmt(days[6])),bd=encodeURIComponent(msg);
+  var gm='https://mail.google.com/mail/?view=cm&fs=1&to='+to+'&su='+su+'&body='+bd,mt='mailto:'+to+'?subject='+su+'&body='+bd;
+  h+='<div class="foot" style="gap:10px;flex-wrap:wrap"><a class="btn p" id="wa" href="'+gm+'" target="_blank" rel="noopener" style="text-decoration:none">Enviar pelo Gmail</a><a class="btn" href="'+mt+'" style="text-decoration:none">Abrir app de e-mail</a><button class="btn" id="cp">Copiar texto</button><button class="btn" id="back">Voltar ao quadro</button></div>';
+  app.innerHTML=h;
+  app.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){off+=+b.dataset.w;render();};});
+  document.getElementById('back').onclick=function(){view='board';render();};
+  document.getElementById('cp').onclick=function(){var b=this;
+    function ok(){b.textContent='Copiado!';}
+    function fb(){var t=document.createElement('textarea');t.value=msg;document.body.appendChild(t);t.select();try{document.execCommand('copy');ok();}catch(e){b.textContent='Não deu para copiar';}document.body.removeChild(t);}
+    try{navigator.clipboard.writeText(msg).then(ok,fb);}catch(e){fb();}};
+}
+
+function buildMsg(days){
+  var m='📋 Relatório da semana, '+fmt(days[0])+' a '+fmt(days[6])+'\n';
+  S.kids.forEach(function(kk){var k=kk.id;
+    var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
+    m+='\n*'+kk.name+'*\n⭐ '+r.stars+' de '+r.max+' estrelas ('+p+'%)\n✅ Todas tarefas em '+r.full+' de '+r.el+' dias\n🙌 Sem pedir: '+r.free+'\n🎁 Bônus: '+r.bonus+'\n🧭 Comportamento: '+r.beh+' de '+r.behMax+'\n⚠️ Descontos: −'+r.pen+'\n🏆 Total: '+(r.stars+r.beh+r.bonus-r.pen)+'\n';
+    r.t.forEach(function(tk,i){
+      var maxT=days.reduce(function(acc,d){return acc+(!isTaskActiveOnDate(tk.m,d)||iso(d)>iso(new Date())?0:3);},0);
+      m+='• '+tk.n+': '+r.perTask[i]+'/'+maxT+'\n';
+    });
+  });
+  return m.trim();
+}
+
+function lstTxt(a){return (a||[]).map(function(e){return e.n+' | '+e.p+(e.x?' | extra':'');}).join('\n');}
+function exTxt(k){return (S.extras[k]||[]).map(function(e){return e.n+' | '+e.p;}).join('\n');}
+function tasksTxt(k){
+  return (S.tasks[k]||[]).map(function(tk){
+    var m=normalizeTaskMode(tk.m);
+    return tk.n + (m!=='all' ? ' | ' + m : '');
+  }).join('\n');
+}
+function parseTasks(id){
+  var el=document.getElementById(id);if(!el)return [];
+  return el.value.split('\n').map(function(l){
+    var a=l.split('|'),n=a[0].trim();
+    if(!n)return null;
+    var mode = a[1] ? a[1].trim() : 'all';
+    return{n:n, m:normalizeTaskMode(mode)};
+  }).filter(Boolean);
+}
+function parseEx(id,d){
+  var el=document.getElementById(id);if(!el)return [];
+  return el.value.split('\n').map(function(l){var a=l.split('|'),n=a[0].trim(),p=parseInt(a[1],10);return{n:n,p:Math.max(1,Math.min(10,p||d||2)),x:/extra|bônus|bonus/i.test(a[2]||'')?1:0};}).filter(function(e){return e.n;});
+}
+
+function renderCfg(app){
+  var h='<div class="card"><b style="font-size:1.3rem">Área dos pais</b>';
+  if(!unlocked){
+    if(fgv){
+      h+='<label for="rc">Chave mestre</label><input id="rc" autocomplete="off" autocapitalize="characters"><label for="np2">Novo PIN</label><input id="np2" type="password" inputmode="numeric" autocomplete="off"><p id="err" class="hide" style="color:#dc2626">Chave incorreta ou PIN vazio.</p><div style="margin-top:12px;display:flex;gap:8px"><button class="btn p" id="rd">Redefinir PIN</button><button class="btn" id="back">Voltar</button></div></div>';
+      app.innerHTML=h;
+      document.getElementById('rd').onclick=function(){
+        var k=document.getElementById('rc').value.trim().toUpperCase(),n=document.getElementById('np2').value.trim();
+        if(n&&k===String(S.rc).toUpperCase()){S.pin=n;save();fgv=false;unlocked=true;render();}
+        else document.getElementById('err').className='';
+      };
+      document.getElementById('back').onclick=function(){fgv=false;render();};
+      return;
+    }
+    h+='<label for="pin">Digite o PIN (padrão: 1234)</label><input id="pin" type="password" inputmode="numeric" autocomplete="off"><p id="err" class="hide" style="color:#dc2626">PIN incorreto.</p><div style="margin-top:12px;display:flex;gap:8px"><button class="btn p" id="ok">Entrar</button><button class="btn" id="back">Voltar</button><button class="btn" id="fg">Esqueci o PIN</button></div></div>';
+    app.innerHTML=h;
+    document.getElementById('fg').onclick=function(){fgv=true;render();};
+    document.getElementById('ok').onclick=function(){
+      var val=document.getElementById('pin').value;
+      if(val===String(S.pin||'1234')){
+        unlocked=true;
+        if(pend){pm=true;pend=false;view='board';clearTimeout(pmt);pmt=setTimeout(function(){pm=false;if(view==='board')render();},300000);}
+        render();
+      }else{
+        document.getElementById('err').className='';
+      }
+    };
+    document.getElementById('back').onclick=function(){pend=false;view='board';render();};
+    return;
+  }
+
+  h+='<div style="margin:12px 0"><label for="per">Período da recompensa</label><select id="per"><option value="mes"'+(S.per==='sem'?'':' selected')+'>Mensal</option><option value="sem"'+(S.per==='sem'?' selected':'')+'>Semanal</option></select></div>';
+  h+='<p class="leg" style="margin:8px 0 0"><b>Regras para tarefas escolares e folgas:</b><br>'
+    +'• <code>| dom-qui</code>: Ativa de Domingo a Quinta (Folga na Sex e Sáb)<br>'
+    +'• <code>| seg-sex</code>: Ativa de Segunda a Sexta (Folga no Sáb e Dom)<br>'
+    +'• Sem nada: Ativa todos os dias da semana</p>';
+
+  S.kids.forEach(function(k,ix){
+    var isSem=S.per==='sem';
+    h+='<div style="border:2px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;'+ks(k.id)+'">'
+    +'<label for="nm_'+k.id+'" style="margin-top:0;font-size:1.15rem;color:var(--c)">Nome da criança '+(ix+1)+'</label><input id="nm_'+k.id+'" value="'+esc(k.name)+'">'
+    +'<div style="margin-top:8px"><label for="gl_'+k.id+'">Meta (%)</label><input id="gl_'+k.id+'" type="number" min="10" max="100" value="'+curGoal(k.id)+'"></div>'
+    +'<div id="boxM_'+k.id+'"'+(isSem?' class="hide"':'')+'><label for="rwM_'+k.id+'">Recompensa Mensal</label><input id="rwM_'+k.id+'" value="'+esc(S.rewardsM[k.id]||'')+'"></div>'
+    +'<div id="boxS_'+k.id+'"'+(isSem?'':' class="hide"')+'><label for="rwS_'+k.id+'">Recompensa Semanal</label><input id="rwS_'+k.id+'" value="'+esc(S.rewardsS[k.id]||'')+'"></div>'
+    +'<label for="tk_'+k.id+'">Tarefas (use | dom-qui ou | seg-sex)</label><textarea id="tk_'+k.id+'">'+esc(tasksTxt(k.id))+'</textarea>'
+    +'<label for="ex_'+k.id+'">Extras (nome | estrelas)</label><textarea id="ex_'+k.id+'">'+esc(exTxt(k.id))+'</textarea>'
+    +'<label for="bh_'+k.id+'">Comportamento (nome | pontos)</label><textarea id="bh_'+k.id+'">'+esc(lstTxt(S.beh[k.id]))+'</textarea>'
+    +'<label for="pn_'+k.id+'">Descontos (nome | pontos a descontar)</label><textarea id="pn_'+k.id+'">'+esc(lstTxt(S.pen[k.id]))+'</textarea>'
+    +(S.kids.length>1?'<div style="margin-top:10px"><button class="btn rm" data-id="'+k.id+'">Remover esta criança</button></div>':'')+'</div>';
+  });
+
+  h+='<div style="margin-top:12px"><button class="btn" id="addk">+ Adicionar criança</button></div>';
+  h+='<label for="em">E-mail para relatório</label><input id="em" type="email" multiple placeholder="voce@email.com" value="'+esc(S.em)+'">';
+  h+='<label for="rcf">Chave mestre</label><input id="rcf" autocomplete="off" value="'+esc(S.rc)+'">';
+  h+='<label for="np">Novo PIN (deixe vazio para manter)</label><input id="np" type="password" inputmode="numeric">';
+  h+='<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn p" id="sv">Salvar</button><button class="btn" id="back">Voltar</button><button class="btn" id="bk">Baixar backup</button><label class="btn" style="margin:0;cursor:pointer">Restaurar backup<input id="rf" type="file" accept=".json,application/json" style="display:none"></label><button class="btn" id="rs">Zerar todas marcações</button></div></div>';
+
+  app.innerHTML=h;
+
+  document.getElementById('per').onchange=function(){
+    var isSem=this.value==='sem';
+    S.kids.forEach(function(k){
+      var bm=document.getElementById('boxM_'+k.id),bs=document.getElementById('boxS_'+k.id);
+      if(bm)bm.className=isSem?'hide':'';
+      if(bs)bs.className=isSem?'':'hide';
+    });
+  };
+
+  function collect(){
+    S.per=document.getElementById('per').value;
+    S.kids.forEach(function(k){
+      var nEl=document.getElementById('nm_'+k.id);if(nEl&&nEl.value.trim())k.name=nEl.value.trim();
+      var gEl=document.getElementById('gl_'+k.id);if(gEl)S.goals[k.id]=Math.max(10,Math.min(100,+gEl.value||80));
+      var rM=document.getElementById('rwM_'+k.id);if(rM)S.rewardsM[k.id]=rM.value.trim();
+      var rS=document.getElementById('rwS_'+k.id);if(rS)S.rewardsS[k.id]=rS.value.trim();
+      S.tasks[k.id]=parseTasks('tk_'+k.id);
+      S.extras[k.id]=parseEx('ex_'+k.id);
+      S.beh[k.id]=parseEx('bh_'+k.id,10);
+      S.pen[k.id]=parseEx('pn_'+k.id,5);
+    });
+    var emEl=document.getElementById('em');if(emEl)S.em=emEl.value.trim();
+  }
+
+  document.getElementById('sv').onclick=function(){
+    collect();
+    var rcv=document.getElementById('rcf').value.trim();if(rcv)S.rc=rcv;
+    var np=document.getElementById('np').value.trim();if(np)S.pin=np;
+    save();view='board';render();
+  };
+
+  document.getElementById('addk').onclick=function(){
+    collect();
+    var id='k'+Date.now().toString(36),used=S.kids.map(function(k){return k.c;});
+    var c=PAL.filter(function(x){return used.indexOf(x)<0;})[0]||PAL[S.kids.length%PAL.length];
+    S.kids.push({id:id,name:'Criança '+(S.kids.length+1),c:c});
+    S.tasks[id]=base.slice();S.extras[id]=exb.slice();S.beh[id]=behD.slice();S.pen[id]=penD.slice();
+    S.goals[id]=80;S.rewardsM[id]='';S.rewardsS[id]='';
+    save();render();
+  };
+
+  app.querySelectorAll('.rm').forEach(function(b){b.onclick=function(){
+    if(!b.dataset.s){b.dataset.s=1;b.textContent='Confirmar remoção?';return;}
+    collect();var id=b.dataset.id;
+    S.kids=S.kids.filter(function(k){return k.id!==id;});
+    delete S.tasks[id];delete S.extras[id];delete S.beh[id];delete S.pen[id];
+    delete S.rewardsM[id];delete S.rewardsS[id];delete S.goals[id];
+    if(kid===id)kid=S.kids[0].id;
+    save();render();
+  };});
+
+  document.getElementById('back').onclick=function(){view='board';render();};
+  document.getElementById('bk').onclick=function(){collect();save();var b=new Blob([JSON.stringify(S)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='backup-quadro-'+iso(new Date())+'.json';document.body.appendChild(a);a.click();a.remove();};
+  document.getElementById('rf').onchange=function(){var f=this.files[0],lb=this.parentNode;if(!f)return;var rd=new FileReader();rd.onload=function(){try{var o=JSON.parse(rd.result);if(!o.kids)throw 0;S=o;ensure();save();kid=S.kids[0].id;view='board';render();}catch(e){lb.firstChild.textContent='Arquivo inválido';}};rd.readAsText(f);};
+  document.getElementById('rs').onclick=function(){if(this.dataset.s){S.done={};S.bonus={};S.bd={};S.pc={};S.cel={};save();view='board';render();}else{this.dataset.s=1;this.textContent='Confirmar limpeza?';}};
+}
+render();
+</script>
+</body>
+</html>
