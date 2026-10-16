@@ -40,7 +40,7 @@ td.t{font-size:1.15rem;font-weight:600;text-align:left;padding-right:8px;min-wid
 .btn.p{background:var(--c);border-color:var(--c);color:#fff}
 .foot{display:flex;justify-content:center;margin-top:18px}
 label{display:block;font-weight:600;margin:12px 0 4px}
-textarea,input{width:100%;font:1rem 'Fredoka',sans-serif;padding:10px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea,input,select{width:100%;font:1rem 'Fredoka',sans-serif;padding:10px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
 textarea{min-height:120px}
 .hide{display:none}
 </style>
@@ -68,7 +68,7 @@ var exb=[{n:'Ajudar a guardar as compras',p:2},{n:'Ajudar a cozinhar',p:2},{n:'A
 var behD=[{n:'Obedecer',p:10},{n:'Atividade física',p:10},{n:'Respeitar',p:10},{n:'Ser educado',p:10},{n:'Ser gentil',p:2,x:1},{n:'Ajudar alguém',p:2,x:1}];
 var penD=[{n:'Chorar sem motivo',p:4},{n:'Brigar',p:5},{n:'Ficar na TV/computador/celular sem permissão',p:5}];
 var pmt;
-function ensure(){if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};
+function ensure(){if(!S.per)S.per='mes';if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};
   S.kids.forEach(function(k){if(!S.beh[k.id])S.beh[k.id]=behD.slice();if(!S.pen[k.id])S.pen[k.id]=penD.slice();});}
 function gate(fn){if(pm){fn();return;}pend=true;unlocked=false;view='cfg';render();}
 if(!S.extras)S.extras={larissa:exb.slice(),leo:exb.slice()};
@@ -95,7 +95,9 @@ function monthSum(k){
 }
 function stats(){
   var r=calc(kid,weekDays()),m=monthSum(kid);
-  return{wk:r.stars+r.beh,wkMax:r.max+r.behMax,xb:r.bonus,pn:r.pen,pct:m.pct,xm:m.xm,mpn:m.pn,goalHit:m.max&&m.pct>=S.goal};
+  var t=S.tasks[kid]||[],bh=S.beh[kid]||[],w=S.per==='sem';
+  var wMax=7*(t.length*3+bh.reduce(function(x,e){return x+(e.x?0:e.p);},0)),wNet=r.stars+r.beh+r.bonus-r.pen,wPct=wMax?Math.max(0,Math.round(wNet/wMax*100)):0;
+  return{wk:r.stars+r.beh,wkMax:r.max+r.behMax,xb:r.bonus,pn:r.pen,pct:w?wPct:m.pct,xm:w?r.bonus:m.xm,mpn:w?r.pen:m.pn,goalHit:w?(wMax&&wPct>=S.goal):(m.max&&m.pct>=S.goal)};
 }
 function render(){
   var app=document.getElementById('app');
@@ -151,8 +153,8 @@ function render(){
   if(pm)h+='<div class="pmb">Modo pais ligado (desliga sozinho em 5 minutos). <button class="btn" id="pmx" style="margin-left:8px;padding:6px 12px">Sair</button></div>';
   var wp=st.wkMax?Math.round(Math.max(0,st.wk-st.pn)/st.wkMax*100):0;
   h+='<div class="card"><b>Esta semana</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' de bônus':'')+(st.pn?' − '+st.pn+' de descontos':'')+'</span><span>'+wp+'%</span></div></div>';
-  h+='<div class="card"><b>Meta do mês</b><div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/S.goal*100))+'%"></i></div><div class="row"><span>'+st.pct+'% feito'+(st.xm?' (com '+st.xm+' de bônus)':'')+(st.mpn?' (−'+st.mpn+' de descontos)':'')+'</span><span>meta: '+S.goal+'%</span></div>';
-  h+='<div class="reward'+(st.goalHit?' ok':'')+'">'+(st.goalHit?'🎉 Meta batida! Recompensa: ':'🎁 Recompensa do mês: ')+S.reward.replace(/</g,'&lt;')+'</div></div>';
+  h+='<div class="card"><b>'+(S.per==='sem'?'Meta da semana':'Meta do mês')+'</b><div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/S.goal*100))+'%"></i></div><div class="row"><span>'+st.pct+'% feito'+(st.xm?' (com '+st.xm+' de bônus)':'')+(st.mpn?' (−'+st.mpn+' de descontos)':'')+'</span><span>meta: '+S.goal+'%</span></div>';
+  h+='<div class="reward'+(st.goalHit?' ok':'')+'">'+(st.goalHit?'🎉 Meta batida! Recompensa: ':'🎁 Recompensa '+(S.per==='sem'?'da semana':'do mês')+': ')+S.reward.replace(/</g,'&lt;')+'</div></div>';
   h+='<div class="card leg"><b style="color:var(--ink)">Como pontua: toque na tarefa quando fizer</b><br>1 toque: ⭐3, fez sem precisar pedir<br>2 toques: ⭐2, precisei pedir 1 vez<br>3 toques: ⭐1, precisei pedir 2 vezes<br>4 toques: ✖, precisei pedir 3 vezes (0 estrelas)<br>5 toques: apaga e recomeça (para quem errou)</div>';
   h+='<div class="foot" style="gap:10px;flex-wrap:wrap"><button class="btn" id="rep">Relatório da semana</button><button class="btn" id="cfg">Área dos pais</button></div>';
   app.innerHTML=h;
@@ -245,8 +247,9 @@ function renderCfg(app){
     +(S.kids.length>1?'<div style="margin-top:10px"><button class="btn rm" data-id="'+k.id+'">Remover esta criança</button></div>':'')+'</div>';
   });
   h+='<div style="margin-top:12px"><button class="btn" id="addk">+ Adicionar criança</button></div>';
-  h+='<label for="rw">Recompensa do mês</label><input id="rw" value="'+S.reward.replace(/"/g,'&quot;')+'">';
-  h+='<label for="gl">Meta para ganhar a recompensa (% das tarefas do mês)</label><input id="gl" type="number" min="10" max="100" value="'+S.goal+'">';
+  h+='<label for="per">Período da recompensa</label><select id="per"><option value="mes"'+(S.per==='sem'?'':' selected')+'>Mensal</option><option value="sem"'+(S.per==='sem'?' selected':'')+'>Semanal</option></select>';
+  h+='<label for="rw">Texto da recompensa</label><input id="rw" value="'+S.reward.replace(/"/g,'&quot;')+'">';
+  h+='<label for="gl">Meta para ganhar a recompensa (% dos pontos do período)</label><input id="gl" type="number" min="10" max="100" value="'+S.goal+'">';
   h+='<label for="em">E-mail para receber o relatório (pode separar vários com vírgula)</label><input id="em" type="email" multiple placeholder="voce@email.com" value="'+(S.em||'').replace(/"/g,'&quot;')+'">';
   h+='<label for="rcf">Chave mestre (recupera o PIN se você esquecer; anote e guarde fora do tablet)</label><input id="rcf" autocomplete="off" value="'+esc(S.rc)+'">';
   h+='<label for="np">Novo PIN (deixe vazio para manter)</label><input id="np" type="password" inputmode="numeric">';
@@ -260,6 +263,7 @@ function renderCfg(app){
     });
     S.reward=document.getElementById('rw').value.trim()||S.reward;
     S.goal=Math.max(10,Math.min(100,+document.getElementById('gl').value||80));
+    S.per=document.getElementById('per').value;
     S.em=document.getElementById('em').value.trim();
   }
   document.getElementById('sv').onclick=function(){
