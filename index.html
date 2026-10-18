@@ -25,7 +25,7 @@ main{max-width:900px;margin:0 auto;padding:16px}
 table{border-collapse:separate;border-spacing:6px;width:100%;min-width:560px}
 th{font-weight:600;color:var(--mut);font-size:.95rem;padding-bottom:2px}
 th.today{color:var(--c);font-weight:700}
-td.t{font-size:1.15rem;font-weight:600;text-align:left;padding-right:8px;min-width:150px}
+td.t{font-size:1.15rem;font-weight:600;text-align:left;padding-right:8px;min-width:160px}
 td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1rem;padding:8px 12px;border-radius:12px;text-align:left}
 .cell{width:100%;height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);cursor:pointer;font:700 1.25rem 'Fredoka',sans-serif;line-height:1;color:#fff}
 .cell.on{background:var(--c);border-color:var(--c)}
@@ -56,7 +56,7 @@ td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1r
 .foot{display:flex;justify-content:center;margin-top:18px}
 label{display:block;font-weight:600;margin:12px 0 4px}
 textarea,input,select{width:100%;font:1rem 'Fredoka',sans-serif;padding:10px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
-textarea{min-height:160px}
+textarea{min-height:180px}
 .hide{display:none}
 </style>
 </head>
@@ -68,29 +68,31 @@ var DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 var base=[
   // MANHÃ
-  {h:'🌅 Manhã'},
+  {h:'Manhã'},
   {n:'Arrumar a cama',m:'all'},
-  {n:'Escovar os dentes manhã',m:'all'},
-  {n:'Remédios manhã',m:'all'},
-  {n:'Arrumar material',m:'dom-qui'},
-  {n:'Lancheira',m:'dom-qui'},
+  {n:'Escovar os dentes',m:'all'},
+  {n:'Tomar Remédios',m:'all'},
+  {n:'Estar pronto até 06h40',m:'seg-sex'},
   
   // TARDE
-  {h:'☀️ Tarde'},
-  {n:'Escovar os dentes após o almoço',m:'all'},
-  {n:'Fazer a lição',m:'seg-sex'},
-  {n:'Remédios tarde',m:'all'},
-  {n:'Guardar os brinquedos',m:'all'},
+  {h:'Tarde'},
+  {n:'Escovar os dentes',m:'all'},
+  {n:'Dobrar uniforme',m:'seg-sex'},
+  {n:'Lancheira',m:'dom-qui'},
+  {n:'Fazer dever/trabalhos',m:'seg-sex'},
+  {n:'Atividade Física',m:'all'},
   
   // NOITE
-  {h:'🌙 Noite'},
+  {h:'Noite'},
   {n:'Tomar banho',m:'all'},
   {n:'Dobrar roupa trocada',m:'all'},
-  {n:'Escovar os dentes noite',m:'all'},
-  {n:'Responsabilidade',m:'all'}
+  {n:'Arrumar material',m:'dom-qui'},
+  {n:'Guardar os brinquedos',m:'all'},
+  {n:'Tomar Remédios',m:'all'},
+  {n:'Escovar os dentes',m:'all'}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},pen:{},bd:{},pc:{},pin:'1234',per:'sem'};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},pen:{},bd:{},pc:{},pin:'1234',per:'sem',ver:3};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -124,7 +126,7 @@ function normalizeTaskMode(m){
 }
 
 function isTaskActiveOnDate(mode, d){
-  var day=d.getDay();
+  var day=d.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
   mode=normalizeTaskMode(mode);
   if(mode==='dom-qui') return day>=0 && day<=4;
   if(mode==='seg-sex') return day>=1 && day<=5;
@@ -151,19 +153,8 @@ function ensure(){
   if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};if(!S.extras)S.extras={};if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(!S.tasks[k.id]){
+    if(S.ver!==3||!S.tasks[k.id]){
       S.tasks[k.id]=base.slice();
-    }else{
-      S.tasks[k.id]=S.tasks[k.id].map(function(t){
-        if(t.h) return {h:t.h};
-        if(typeof t==='string'){
-          if(t.indexOf('#')===0) return {h:t.replace(/^#\s*/,'')};
-          var isMat=/lancheira|material/i.test(t);
-          var isLic=/lição|licao/i.test(t);
-          return {n:t, m:isMat?'dom-qui':(isLic?'seg-sex':'all')};
-        }
-        return {n:t.n, m:t.m||'all'};
-      });
     }
     if(!S.rewardsM[k.id])S.rewardsM[k.id]=S.rewardM||S.reward||'Recompensa mensal ainda a definir';
     if(!S.rewardsS[k.id])S.rewardsS[k.id]=S.rewardS||S.reward||'Recompensa semanal ainda a definir';
@@ -172,6 +163,7 @@ function ensure(){
     if(!S.beh[k.id])S.beh[k.id]=behD.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
+  if(S.ver!==3){S.ver=3;save();}
 }
 ensure();
 
@@ -393,7 +385,6 @@ function calc(k,days){
     if(s>td){perDay.push(null);return;}
     el++;var c=0,all=true,activeTasks=0;
     
-    // Contagem real das tarefas ignorando cabeçalhos
     var realIdx = -1;
     (S.tasks[k]||[]).forEach(function(tk, i){
       if(tk.h) return;
@@ -537,10 +528,11 @@ function renderCfg(app){
 
   var isSem = (S.per === 'sem');
   h+='<div style="margin:12px 0"><label for="per">Período da recompensa</label><select id="per"><option value="sem"'+(isSem?' selected':'')+'>Semanal</option><option value="mes"'+(isSem?'':' selected')+'>Mensal</option></select></div>';
-  h+='<p class="leg" style="margin:8px 0 0"><b>Dicas de organização:</b><br>'
-    +'• Use <code># Título</code> para criar faixas divisórias (ex: <i># 🌅 Manhã</i>)<br>'
+  h+='<p class="leg" style="margin:8px 0 0"><b>Organização das Tarefas:</b><br>'
+    +'• <code># Título</code> cria faixas de separação (ex: <i># Manhã</i>)<br>'
     +'• <code>| dom-qui</code>: Ativa de Domingo a Quinta<br>'
-    +'• <code>| seg-sex</code>: Ativa de Segunda a Sexta</p>';
+    +'• <code>| seg-sex</code>: Ativa de Segunda a Sexta<br>'
+    +'• Sem nada: Ativa todos os dias (Dom a Sáb)</p>';
 
   S.kids.forEach(function(k,ix){
     h+='<div style="border:2px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;'+ks(k.id)+'">'
