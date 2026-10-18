@@ -63,21 +63,26 @@ textarea{min-height:120px}
 <main id="app"></main>
 <script>
 var KEY='quadro-rotinas-v1';
-var DIAS=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+var DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 var base=[
+  // MANHÃ
   {n:'Arrumar a cama',m:'all'},
   {n:'Escovar os dentes manhã',m:'all'},
   {n:'Remédios manhã',m:'all'},
-  {n:'Escovar os dentes após o almoço',m:'all'},
-  {n:'Escovar os dentes noite',m:'all'},
-  {n:'Tomar banho',m:'all'},
-  {n:'Remédios tarde',m:'all'},
   {n:'Arrumar material',m:'dom-qui'},
   {n:'Lancheira',m:'dom-qui'},
-  {n:'Dobrar roupa trocada',m:'all'},
-  {n:'Guardar os brinquedos',m:'all'},
+  
+  // TARDE
+  {n:'Escovar os dentes após o almoço',m:'all'},
   {n:'Fazer a lição',m:'seg-sex'},
+  {n:'Remédios tarde',m:'all'},
+  {n:'Guardar os brinquedos',m:'all'},
+  
+  // NOITE
+  {n:'Tomar banho',m:'all'},
+  {n:'Dobrar roupa trocada',m:'all'},
+  {n:'Escovar os dentes noite',m:'all'},
   {n:'Responsabilidade',m:'all'}
 ];
 
@@ -107,20 +112,20 @@ function gen(){
 }
 
 function normalizeTaskMode(m){
-  if(!m||m==='all')return 'all';
-  if(/dom.*qui/i.test(m))return 'dom-qui';
-  if(/seg.*sex|uteis|dia/i.test(m))return 'seg-sex';
-  if(/sab.*dom|fds|fim/i.test(m))return 'sab-dom';
+  if(!m||m==='all') return 'all';
+  if(/dom.*qui/i.test(m)) return 'dom-qui';
+  if(/seg.*sex|uteis|util/i.test(m)) return 'seg-sex';
+  if(/sab.*dom|fds|fim/i.test(m)) return 'sab-dom';
   return 'all';
 }
 
 function isTaskActiveOnDate(mode, d){
-  var day=d.getDay();
+  var day=d.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
   mode=normalizeTaskMode(mode);
-  if(mode==='dom-qui') return day>=0 && day<=4;
-  if(mode==='seg-sex') return day>=1 && day<=5;
-  if(mode==='sab-dom') return day===0 || day===6;
-  return true;
+  if(mode==='dom-qui') return day>=0 && day<=4; // Domingo a Quinta
+  if(mode==='seg-sex') return day>=1 && day<=5; // Segunda a Sexta
+  if(mode==='sab-dom') return day===0 || day===6; // Sábado e Domingo
+  return true; // 'all' (Todos os 7 dias, de Domingo a Sábado)
 }
 
 function modeLabel(mode){
@@ -140,9 +145,10 @@ function ensure(){
   if(!S.rewardsS)S.rewardsS={};
   if(!S.goals)S.goals={};
   if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};if(!S.extras)S.extras={};if(!S.bonus)S.bonus={};
+  
   S.kids.forEach(function(k){
     if(!S.tasks[k.id]){
-      S.tasks[k.id]=base.map(function(t){return{n:t.n,m:t.mode};});
+      S.tasks[k.id]=base.map(function(t){return{n:t.n,m:t.m};});
     }else{
       S.tasks[k.id]=S.tasks[k.id].map(function(t){
         if(typeof t==='string'){
@@ -150,7 +156,7 @@ function ensure(){
           var isLic=/lição|licao/i.test(t);
           return {n:t, m:isMat?'dom-qui':(isLic?'seg-sex':'all')};
         }
-        return {n:t.n, m:t.m||(t.d?'seg-sex':'all')};
+        return {n:t.n, m:t.m||'all'};
       });
     }
     if(!S.rewardsM[k.id])S.rewardsM[k.id]=S.rewardM||S.reward||'Recompensa mensal ainda a definir';
@@ -169,19 +175,31 @@ function esc(x){return String(x||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'
 
 function curRw(k){
   var isSem = (S.per === 'sem');
-  if(isSem){
-    return S.rewardsS[k] || S.rewardS || 'Recompensa semanal a definir';
-  } else {
-    return S.rewardsM[k] || S.rewardM || 'Recompensa mensal a definir';
-  }
+  return isSem ? (S.rewardsS[k]||S.rewardS||'Recompensa semanal a definir') : (S.rewardsM[k]||S.rewardM||'Recompensa mensal a definir');
 }
 
 function curGoal(k){return S.goals[k]||S.goal||80;}
 
 function bToggle(date,i){var key=date+'|'+kid+'|'+i;if(S.bonus[key])delete S.bonus[key];else S.bonus[key]=1;save();render();}
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function monday(n){var d=new Date();d.setHours(12,0,0,0);var w=(d.getDay()+6)%7;d.setDate(d.getDate()-w+n*7);return d;}
-function weekDays(){var m=monday(off),a=[];for(var i=0;i<7;i++){var d=new Date(m);d.setDate(m.getDate()+i);a.push(d);}return a;}
+
+// Define o domingo da semana atual ou navegada
+function sunday(n){
+  var d=new Date();d.setHours(12,0,0,0);
+  var w=d.getDay(); // 0 = Domingo
+  d.setDate(d.getDate()-w+n*7);
+  return d;
+}
+
+function weekDays(){
+  var s=sunday(off),a=[];
+  for(var i=0;i<7;i++){
+    var d=new Date(s);
+    d.setDate(s.getDate()+i);
+    a.push(d);
+  }
+  return a;
+}
 function fmt(d){return d.getDate()+'/'+(d.getMonth()+1);}
 
 function gate(fn){if(pm){fn();return;}pend=true;unlocked=false;view='cfg';render();}
@@ -263,7 +281,7 @@ function render(){
 
   var h='<div class="tabs">';
   S.kids.forEach(function(kk){var k=kk.id;h+='<button class="tab kc'+(k===kid?' on':'')+'" style="'+ks(k)+'" data-k="'+k+'">'+esc(kk.name)+'</button>';});
-  h+='</div><div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Semana de '+fmt(days[0])+' a '+fmt(days[6])+'</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div>';
+  h+='</div><div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Semana de '+fmt(days[0])+' a '+fmt(days[6])+' (Dom a Sáb)</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div>';
   h+='<div class="scroll"><table><tr><th></th>';
   days.forEach(function(d,i){var s=iso(d);h+='<th class="'+(s===td?'today':'')+'">'+DIAS[i]+'<br>'+fmt(d)+'</th>';});
   h+='</tr>';
@@ -298,17 +316,19 @@ function render(){
 
   var bh=S.beh[kid]||[],pe=S.pen[kid]||[];
   if(bh.length){
-    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(os pais marcam; vale pontos)</span><div class="scroll"><table><tr><th></th>';
+    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(vale pontos diariamente de Dom a Sáb)</span><div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
     bh.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' ('+(e.x?'bônus ':'')+e.p+')</td>';
-      days.forEach(function(d){var s=iso(d),on=S.bd[s+'|'+kid+'|'+i];
-        h+='<td><button class="cell bh'+(on?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(on?'+'+e.p:'')+'</button></td>';});
+      days.forEach(function(d){
+        var s=iso(d),on=S.bd[s+'|'+kid+'|'+i];
+        h+='<td><button class="cell bh'+(on?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(on?'+'+e.p:'')+'</button></td>';
+      });
       h+='</tr>';});
     h+='</table></div></div>';
   }
 
   if(pe.length){
-    h+='<div class="card"><b>Perde pontos</b> <span class="leg">(os pais marcam cada ocorrência)</span><div class="scroll"><table><tr><th></th>';
+    h+='<div class="card"><b>Perde pontos</b> <span class="leg">(descontos pontuais)</span><div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
     pe.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' (−'+e.p+')</td>';
       days.forEach(function(d){var s=iso(d),c=S.pc[s+'|'+kid+'|'+i]||0;
@@ -320,9 +340,8 @@ function render(){
   if(pm)h+='<div class="pmb">Modo pais ativo. <button class="btn" id="pmx" style="margin-left:8px;padding:6px 12px">Sair</button></div>';
 
   var wp=st.wkMax?Math.round(Math.max(0,st.wk-st.pn)/st.wkMax*100):0;
-  h+='<div class="card"><b>Esta semana</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' de bônus':'')+(st.pn?' − '+st.pn+' de descontos':'')+'</span><span>'+wp+'%</span></div></div>';
+  h+='<div class="card"><b>Esta semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' de bônus':'')+(st.pn?' − '+st.pn+' de descontos':'')+'</span><span>'+wp+'%</span></div></div>';
 
-  // CARTÃO DE META DINÂMICO
   h+='<div class="card"><b>'+(isSem?'Meta da semana':'Meta do mês')+'</b>'
     +'<div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/st.goal*100))+'%"></i></div>'
     +'<div class="row"><span>'+st.pct+'% '+(isSem?'concluído':'de aproveitamento')+(st.xm?' (+'+st.xm+' bônus)':'')+(st.mpn?' (−'+st.mpn+' descontos)':'')+'</span><span>meta: '+st.goal+'%</span></div>';
@@ -338,7 +357,7 @@ function render(){
 
   var c2=document.getElementById('cel2');if(c2)c2.onclick=function(){celebrate(nm(kid),rwTxt);};
   if(st.goalHit&&off===0){
-    var ck=kid+'|'+(isSem?iso(monday(0)):iso(new Date()).slice(0,7));
+    var ck=kid+'|'+(isSem?iso(sunday(0)):iso(new Date()).slice(0,7));
     if(!S.cel)S.cel={};
     if(!S.cel[ck]){S.cel[ck]=1;save();celebrate(nm(kid),rwTxt);}
   }
@@ -394,7 +413,7 @@ function calc(k,days){
 }
 
 function renderRep(app){
-  var days=weekDays(),h='<div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Relatório de '+fmt(days[0])+' a '+fmt(days[6])+'</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div></div>';
+  var days=weekDays(),h='<div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Relatório de '+fmt(days[0])+' a '+fmt(days[6])+' (Dom a Sáb)</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div></div>';
   S.kids.forEach(function(kk){
     var k=kk.id;
     var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
@@ -495,10 +514,10 @@ function renderCfg(app){
 
   var isSem = (S.per === 'sem');
   h+='<div style="margin:12px 0"><label for="per">Período da recompensa</label><select id="per"><option value="sem"'+(isSem?' selected':'')+'>Semanal</option><option value="mes"'+(isSem?'':' selected')+'>Mensal</option></select></div>';
-  h+='<p class="leg" style="margin:8px 0 0"><b>Regras para tarefas escolares e folgas:</b><br>'
-    +'• <code>| dom-qui</code>: Ativa de Domingo a Quinta (Folga na Sex e Sáb)<br>'
-    +'• <code>| seg-sex</code>: Ativa de Segunda a Sexta (Folga no Sáb e Dom)<br>'
-    +'• Sem nada: Ativa todos os dias da semana</p>';
+  h+='<p class="leg" style="margin:8px 0 0"><b>Regras de contagem por tarefa:</b><br>'
+    +'• Padrão (sem nada): Ativa de <b>Domingo a Sábado</b> (todos os 7 dias)<br>'
+    +'• <code>| dom-qui</code>: Ativa de <b>Domingo a Quinta</b> (Sexta e Sábado = Folga)<br>'
+    +'• <code>| seg-sex</code>: Ativa de <b>Segunda a Sexta</b> (Sábado e Domingo = Folga)</p>';
 
   S.kids.forEach(function(k,ix){
     h+='<div style="border:2px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;'+ks(k.id)+'">'
