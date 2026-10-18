@@ -30,6 +30,7 @@ td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1r
 .cell{width:100%;height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);cursor:pointer;font:700 1.25rem 'Fredoka',sans-serif;line-height:1;color:#fff}
 .cell.on{background:var(--c);border-color:var(--c)}
 .cell.td{border-color:var(--c)}.cell.l2{filter:brightness(1.12)}.cell.l1{filter:brightness(1.3)}.cell.pn.on{background:#ef4444;border-color:#ef4444}.cell.l0{background:#9ca3af;border-color:#9ca3af;filter:none}
+.cell.neg{background:#dc2626 !important;border-color:#b91c1c !important}
 .cell.off{background:var(--bg);border-color:var(--line);color:var(--mut);cursor:default;font-size:.85rem}
 .pmb{background:#fef3c7;color:#7c2d12;border-radius:14px;padding:10px 14px;margin-top:14px;font-weight:600;text-align:center}
 .cel{position:fixed;inset:0;z-index:99;background:rgba(24,12,60,.92);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px}
@@ -48,6 +49,7 @@ td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1r
 .cell:focus-visible,.tab:focus-visible,.nav:focus-visible,.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .bar{height:22px;border-radius:12px;background:var(--soft);overflow:hidden;margin:8px 0 6px}
 .bar i{display:block;height:100%;background:var(--c);border-radius:12px;transition:width .4s}
+.bar.money i{background:#16a34a}
 .row{display:flex;justify-content:space-between;gap:8px;font-size:1rem;color:var(--mut)}
 .reward{margin-top:10px;font-size:1.1rem}
 .reward.ok{color:var(--c);font-weight:700}
@@ -67,22 +69,17 @@ var KEY='quadro-rotinas-v1';
 var DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 var base=[
-  // MANHÃ
   {h:'Manhã'},
   {n:'Arrumar a cama',m:'all'},
   {n:'Escovar os dentes',m:'all'},
   {n:'Tomar Remédios',m:'all'},
   {n:'Estar pronto até 06h40',m:'seg-sex'},
-  
-  // TARDE
   {h:'Tarde'},
   {n:'Escovar os dentes',m:'all'},
   {n:'Dobrar uniforme',m:'seg-sex'},
   {n:'Lancheira',m:'dom-qui'},
   {n:'Fazer dever/trabalhos',m:'seg-sex'},
   {n:'Atividade Física',m:'all'},
-  
-  // NOITE
   {h:'Noite'},
   {n:'Tomar banho',m:'all'},
   {n:'Dobrar roupa trocada',m:'all'},
@@ -92,7 +89,31 @@ var base=[
   {n:'Escovar os dentes',m:'all'}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},pen:{},bd:{},pc:{},pin:'1234',per:'sem',ver:3};
+var behD=[
+  {n:'Obedecer',p:10},
+  {n:'Atividade física',p:10},
+  {n:'Respeitar',p:10},
+  {n:'Ser educado',p:10}
+];
+
+var atitudesD=[
+  {n:'Ser gentil',p:2},
+  {n:'Ajudar alguém',p:2}
+];
+
+var penD=[
+  {n:'Chorar sem motivo',p:4},
+  {n:'Brigar',p:5},
+  {n:'Ficar na TV/computador/celular sem permissão',p:5}
+];
+
+var exb=[
+  {n:'Ajudar a guardar as compras',p:2},
+  {n:'Ajudar a cozinhar',p:2},
+  {n:'Ajudar a lavar o carro',p:3}
+];
+
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:6};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -105,9 +126,6 @@ var PAL=['#d946a8','#0ea5a4','#f59e0b','#3b82f6','#8b5cf6','#ef4444','#16a34a','
 if(!S.kids||!S.kids.length)S.kids=[{id:'larissa',name:'Larissa'},{id:'leo',name:'Léo'}];
 S.kids.forEach(function(k,i){if(!k.c)k.c=PAL[i%PAL.length];});
 
-var exb=[{n:'Ajudar a guardar as compras',p:2},{n:'Ajudar a cozinhar',p:2},{n:'Ajudar a lavar o carro',p:3}];
-var behD=[{n:'Obedecer',p:10},{n:'Atividade física',p:10},{n:'Respeitar',p:10},{n:'Ser educado',p:10},{n:'Ser gentil',p:2,x:1},{n:'Ajudar alguém',p:2,x:1}];
-var penD=[{n:'Chorar sem motivo',p:4},{n:'Brigar',p:5},{n:'Ficar na TV/computador/celular sem permissão',p:5}];
 var pmt;
 
 function gen(){
@@ -126,7 +144,7 @@ function normalizeTaskMode(m){
 }
 
 function isTaskActiveOnDate(mode, d){
-  var day=d.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  var day=d.getDay();
   mode=normalizeTaskMode(mode);
   if(mode==='dom-qui') return day>=0 && day<=4;
   if(mode==='seg-sex') return day>=1 && day<=5;
@@ -150,20 +168,28 @@ function ensure(){
   if(!S.rewardsM)S.rewardsM={};
   if(!S.rewardsS)S.rewardsS={};
   if(!S.goals)S.goals={};
-  if(!S.beh)S.beh={};if(!S.pen)S.pen={};if(!S.bd)S.bd={};if(!S.pc)S.pc={};if(!S.extras)S.extras={};if(!S.bonus)S.bonus={};
+  if(!S.beh)S.beh={};
+  if(!S.atitudes)S.atitudes={};
+  if(!S.pen)S.pen={};
+  if(!S.bd)S.bd={};
+  if(!S.atd)S.atd={};
+  if(!S.pc)S.pc={};
+  if(!S.extras)S.extras={};
+  if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==3||!S.tasks[k.id]){
-      S.tasks[k.id]=base.slice();
+    if(S.ver!==6||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==6||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==6||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==6||!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
+      S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
-    if(!S.rewardsM[k.id])S.rewardsM[k.id]=S.rewardM||S.reward||'Recompensa mensal ainda a definir';
-    if(!S.rewardsS[k.id])S.rewardsS[k.id]=S.rewardS||S.reward||'Recompensa semanal ainda a definir';
+    if(!S.rewardsM[k.id])S.rewardsM[k.id]=S.rewardM||'Recompensa mensal em família';
     if(!S.goals[k.id])S.goals[k.id]=S.goal||80;
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
-    if(!S.beh[k.id])S.beh[k.id]=behD.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==3){S.ver=3;save();}
+  if(S.ver!==6){S.ver=6;save();}
 }
 ensure();
 
@@ -172,8 +198,7 @@ function ks(id){var f=S.kids.filter(function(k){return k.id===id;})[0];return '-
 function esc(x){return String(x||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
 function curRw(k){
-  var isSem = (S.per === 'sem');
-  return isSem ? (S.rewardsS[k]||S.rewardS||'Recompensa semanal a definir') : (S.rewardsM[k]||S.rewardM||'Recompensa mensal a definir');
+  return (S.per === 'sem') ? (S.rewardsS[k]||S.rewardS||'Recompensa semanal a definir') : (S.rewardsM[k]||S.rewardM||'Recompensa mensal a definir');
 }
 
 function curGoal(k){return S.goals[k]||S.goal||80;}
@@ -213,12 +238,24 @@ function monthSum(k){
   var pre=y+'-'+String(m+1).padStart(2,'0');
   var todayNum=now.getDate();
   var dim=new Date(y,m+1,0).getDate();
-  var t=(S.tasks[k]||[]).filter(function(item){return !item.h;}),ex=S.extras[k]||[],bh=S.beh[k]||[],pe=S.pen[k]||[];
-  var o={tk:0,xm:0,bh:0,pn:0};
+  var t=(S.tasks[k]||[]).filter(function(item){return !item.h;});
+  var ex=S.extras[k]||[],bh=S.beh[k]||[],at=S.atitudes[k]||[],pe=S.pen[k]||[];
+  var o={tk:0,xm:0,bh:0,at:0,pn:0};
 
   for(var a in S.done){if(a.indexOf(pre)===0&&a.split('|')[1]===k)o.tk+=S.done[a];}
   for(var a in S.bonus){var q=a.split('|');if(a.indexOf(pre)===0&&q[1]===k&&ex[+q[2]])o.xm+=ex[+q[2]].p;}
-  for(var a in S.bd){var q=a.split('|');if(a.indexOf(pre)===0&&q[1]===k&&bh[+q[2]])o.bh+=bh[+q[2]].p;}
+  for(var a in S.bd){
+    var q=a.split('|');
+    if(a.indexOf(pre)===0&&q[1]===k&&bh[+q[2]]){
+      o.bh += (S.bd[a] !== undefined ? S.bd[a] : bh[+q[2]].p);
+    }
+  }
+  for(var a in S.atd){
+    var q=a.split('|');
+    if(a.indexOf(pre)===0&&q[1]===k&&at[+q[2]]){
+      o.at += (S.atd[a]||0) * at[+q[2]].p;
+    }
+  }
   for(var a in S.pc){var q=a.split('|');if(a.indexOf(pre)===0&&q[1]===k&&pe[+q[2]])o.pn+=S.pc[a]*pe[+q[2]].p;}
 
   var maxDecor=0, maxTotal=0;
@@ -226,12 +263,12 @@ function monthSum(k){
     var dt=new Date(y,m,day);
     var tDay=0;
     t.forEach(function(tk){if(isTaskActiveOnDate(tk.m, dt))tDay+=3;});
-    var behDay=bh.reduce(function(x,e){return x+(e.x?0:e.p);},0);
+    var behDay=bh.reduce(function(x,e){return x+e.p;},0);
     maxTotal+=(tDay+behDay);
     if(day<=todayNum)maxDecor+=(tDay+behDay);
   }
 
-  o.net=o.tk+o.xm+o.bh-o.pn;
+  o.net=o.tk+o.xm+o.bh+o.at-o.pn;
   o.maxDecor=maxDecor;
   o.maxTotal=maxTotal;
   o.pctDecor=maxDecor?Math.max(0,Math.round(o.net/maxDecor*100)):0;
@@ -242,15 +279,21 @@ function monthSum(k){
 function stats(){
   var r=calc(kid,weekDays()),m=monthSum(kid);
   var g=curGoal(kid),w=(S.per==='sem');
-  var wPct=r.maxNet?Math.max(0,Math.round((r.stars+r.beh+r.bonus-r.pen)/r.maxNet*100)):0;
+  var wPct=r.maxNet?Math.max(0,Math.round((r.stars+r.beh+r.bonus+r.at-r.pen)/r.maxNet*100)):0;
+  var extraPoints = w ? r.bonus : m.xm;
+  var moneyEarned = Math.floor(extraPoints / 20) * 20;
+
   return{
     wk:r.stars+r.beh,
     wkMax:r.maxNet,
     xb:r.bonus,
+    at:r.at,
     pn:r.pen,
+    extraPoints:extraPoints,
+    moneyEarned:moneyEarned,
     pct:w?wPct:m.pctDecor,
     pctProj:m.pctProj,
-    xm:w?r.bonus:m.xm,
+    xm:w?(r.bonus+r.at):(m.xm+m.at),
     mpn:w?r.pen:m.pn,
     goal:g,
     goalHit:w?(r.maxNet&&wPct>=g):(m.maxDecor&&m.pctDecor>=g)
@@ -304,7 +347,11 @@ function render(){
 
   var ex=S.extras[kid]||[];
   if(ex.length){
-    h+='<div class="card"><b>Extras</b> <span class="leg">(não são obrigação: valem estrelas de bônus)</span><div class="scroll"><table><tr><th></th>';
+    var extraPct = Math.min(100, Math.round((st.extraPoints / 20) * 100));
+    h+='<div class="card"><b>Atividades Extras</b> <span class="leg">(valem bônus financeiro: 20 pts = R$ 20,00)</span>'
+      +'<div class="bar money"><i style="width:'+extraPct+'%"></i></div>'
+      +'<div class="row"><span>Pontos de Extras: <b>'+st.extraPoints+' de 20</b></span><span><b>R$ '+st.moneyEarned+',00 acumulados</b></span></div>'
+      +'<div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});
     h+='</tr>';
     ex.forEach(function(e,i){
@@ -315,21 +362,43 @@ function render(){
     h+='</table></div></div>';
   }
 
-  var bh=S.beh[kid]||[],pe=S.pen[kid]||[];
+  var bh=S.beh[kid]||[];
   if(bh.length){
-    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(vale pontos diariamente de Dom a Sáb)</span><div class="scroll"><table><tr><th></th>';
+    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(começa em 10; cada toque desconta 1 ponto)</span><div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
-    bh.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' ('+(e.x?'bônus ':'')+e.p+')</td>';
+    bh.forEach(function(e,i){
+      h+='<tr><td class="t">'+esc(e.n)+' (base: '+e.p+')</td>';
       days.forEach(function(d){
-        var s=iso(d),on=S.bd[s+'|'+kid+'|'+i];
-        h+='<td><button class="cell bh'+(on?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(on?'+'+e.p:'')+'</button></td>';
+        var s=iso(d),key=s+'|'+kid+'|'+i;
+        var val = (S.bd[key] !== undefined) ? S.bd[key] : e.p;
+        var isModified = (S.bd[key] !== undefined);
+        var isNeg = val < 0;
+        h+='<td><button class="cell bh'+(isModified?' on':'')+(isNeg?' neg':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+val+'</button></td>';
       });
-      h+='</tr>';});
+      h+='</tr>';
+    });
     h+='</table></div></div>';
   }
 
+  var at=S.atitudes[kid]||[];
+  if(at.length){
+    h+='<div class="card"><b>Atitudes Legais</b> <span class="leg">(bônus comportamentais de empatia e cuidado)</span><div class="scroll"><table><tr><th></th>';
+    days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
+    at.forEach(function(e,i){
+      h+='<tr><td class="t">'+esc(e.n)+' (+'+e.p+')</td>';
+      days.forEach(function(d){
+        var s=iso(d),key=s+'|'+kid+'|'+i;
+        var count = S.atd[key] || 0;
+        h+='<td><button class="cell atd'+(count?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-a="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(count?'+'+(count*e.p):'')+'</button></td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  }
+
+  var pe=S.pen[kid]||[];
   if(pe.length){
-    h+='<div class="card"><b>Perde pontos</b> <span class="leg">(descontos pontuais)</span><div class="scroll"><table><tr><th></th>';
+    h+='<div class="card"><b>Atitudes Ruins</b> <span class="leg">(descontos pontuais de ocorrências)</span><div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
     pe.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' (−'+e.p+')</td>';
       days.forEach(function(d){var s=iso(d),c=S.pc[s+'|'+kid+'|'+i]||0;
@@ -340,12 +409,12 @@ function render(){
 
   if(pm)h+='<div class="pmb">Modo pais ativo. <button class="btn" id="pmx" style="margin-left:8px;padding:6px 12px">Sair</button></div>';
 
-  var wp=st.wkMax?Math.round(Math.max(0,st.wk-st.pn)/st.wkMax*100):0;
-  h+='<div class="card"><b>Esta semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' de bônus':'')+(st.pn?' − '+st.pn+' de descontos':'')+'</span><span>'+wp+'%</span></div></div>';
+  var wp=st.wkMax?Math.round(Math.max(0,st.wk+st.at-st.pn)/st.wkMax*100):0;
+  h+='<div class="card"><b>Esta semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' extras':'')+(st.at?' + '+st.at+' atitudes':'')+(st.pn?' − '+st.pn+' atitudes ruins':'')+'</span><span>'+wp+'%</span></div></div>';
 
   h+='<div class="card"><b>'+(isSem?'Meta da semana':'Meta do mês')+'</b>'
     +'<div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/st.goal*100))+'%"></i></div>'
-    +'<div class="row"><span>'+st.pct+'% '+(isSem?'concluído':'de aproveitamento')+(st.xm?' (+'+st.xm+' bônus)':'')+(st.mpn?' (−'+st.mpn+' descontos)':'')+'</span><span>meta: '+st.goal+'%</span></div>';
+    +'<div class="row"><span>'+st.pct+'% '+(isSem?'concluído':'de aproveitamento')+(st.xm?' (+'+st.xm+' bônus)':'')+(st.mpn?' (−'+st.mpn+' atitudes ruins)':'')+'</span><span>meta: '+st.goal+'%</span></div>';
   if(!isSem){
     h+='<div class="row" style="font-size:0.85rem;margin-top:4px;color:var(--mut)"><span>Ritmo geral no mês inteiro: '+st.pctProj+'%</span></div>';
   }
@@ -364,8 +433,37 @@ function render(){
   }
   app.querySelectorAll('.tab').forEach(function(b){b.onclick=function(){kid=b.dataset.k;render();};});
   app.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){off+=+b.dataset.w;render();};});
-  app.querySelectorAll('.cell:not(.xb):not(.bh):not(.pn):not(.off)').forEach(function(b){b.onclick=function(){toggle(b.dataset.d,b.dataset.i);};});
-  app.querySelectorAll('.bh').forEach(function(b){b.onclick=function(){gate(function(){var key=b.dataset.d+'|'+kid+'|'+b.dataset.b;if(S.bd[key])delete S.bd[key];else S.bd[key]=1;save();render();});};});
+  app.querySelectorAll('.cell:not(.xb):not(.bh):not(.atd):not(.pn):not(.off)').forEach(function(b){b.onclick=function(){toggle(b.dataset.d,b.dataset.i);};});
+  
+  app.querySelectorAll('.bh').forEach(function(b){
+    b.onclick=function(){
+      gate(function(){
+        var key=b.dataset.d+'|'+kid+'|'+b.dataset.b;
+        var baseP = S.beh[kid][+b.dataset.b].p;
+        var cur = (S.bd[key] !== undefined) ? S.bd[key] : baseP;
+        cur--;
+        if(cur < -10){
+          delete S.bd[key];
+        } else {
+          S.bd[key] = cur;
+        }
+        save();render();
+      });
+    };
+  });
+
+  app.querySelectorAll('.atd').forEach(function(b){
+    b.onclick=function(){
+      gate(function(){
+        var key=b.dataset.d+'|'+kid+'|'+b.dataset.a;
+        var count = (S.atd[key] || 0) + 1;
+        if(count > 5) delete S.atd[key];
+        else S.atd[key] = count;
+        save();render();
+      });
+    };
+  });
+
   app.querySelectorAll('.pn').forEach(function(b){b.onclick=function(){gate(function(){var key=b.dataset.d+'|'+kid+'|'+b.dataset.q,c=(S.pc[key]||0)+1;if(c>5)delete S.pc[key];else S.pc[key]=c;save();render();});};});
   var px=document.getElementById('pmx');if(px)px.onclick=function(){pm=false;clearTimeout(pmt);render();};
   app.querySelectorAll('.xb').forEach(function(b){b.onclick=function(){bToggle(b.dataset.d,b.dataset.x);};});
@@ -375,9 +473,9 @@ function render(){
 
 function calc(k,days){
   var t=(S.tasks[k]||[]).filter(function(item){return !item.h;}),td=iso(new Date()),el=0,stars=0,full=0,free=0;
-  var bh=S.beh[k]||[],pe=S.pen[k]||[];
-  var beh=0,behMax=0,pen=0;
-  var perBeh=bh.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[],perTask=t.map(function(){return 0;});
+  var bh=S.beh[k]||[],at=S.atitudes[k]||[],pe=S.pen[k]||[];
+  var beh=0,behMax=0,atBonus=0,pen=0;
+  var perBeh=bh.map(function(){return 0;}),perAt=at.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[],perTask=t.map(function(){return 0;});
   var maxPossivel=0;
 
   days.forEach(function(d){
@@ -399,9 +497,18 @@ function calc(k,days){
     stars+=c;if(activeTasks>0&&all)full++;perDay.push(c);
 
     bh.forEach(function(e,i){
-      if(!e.x)behMax+=e.p;
-      if(S.bd[s+'|'+k+'|'+i]){beh+=e.p;perBeh[i]+=e.p;}
+      behMax += e.p;
+      var curVal = (S.bd[s+'|'+k+'|'+i] !== undefined) ? S.bd[s+'|'+k+'|'+i] : e.p;
+      beh += curVal;
+      perBeh[i] += curVal;
     });
+
+    at.forEach(function(e,i){
+      var n = S.atd[s+'|'+k+'|'+i] || 0;
+      atBonus += n * e.p;
+      perAt[i] += n * e.p;
+    });
+
     pe.forEach(function(e,i){
       var n=S.pc[s+'|'+k+'|'+i]||0;
       pen+=n*e.p;perPen[i]+=n;
@@ -414,7 +521,7 @@ function calc(k,days){
     ex.forEach(function(e,i){if(S.bonus[s+'|'+k+'|'+i])bonus+=e.p;});
   });
 
-  return{t:t,el:el,stars:stars,max:maxPossivel,maxNet:maxPossivel+behMax,full:full,free:free,bonus:bonus,beh:beh,behMax:behMax,pen:pen,perBeh:perBeh,perPen:perPen,perDay:perDay,perTask:perTask};
+  return{t:t,el:el,stars:stars,max:maxPossivel,maxNet:maxPossivel+behMax,full:full,free:free,bonus:bonus,at:atBonus,beh:beh,behMax:behMax,pen:pen,perBeh:perBeh,perAt:perAt,perPen:perPen,perDay:perDay,perTask:perTask};
 }
 
 function renderRep(app){
@@ -422,8 +529,9 @@ function renderRep(app){
   S.kids.forEach(function(kk){
     var k=kk.id;
     var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
+    var money = Math.floor(r.bonus / 20) * 20;
     h+='<div class="card kc" style="'+ks(k)+'"><b style="font-size:1.3rem;color:var(--c)">'+esc(kk.name)+'</b>';
-    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ <b>'+r.stars+'</b> de '+r.max+' estrelas ('+p+'%)<br>✅ Todas tarefas: <b>'+r.full+'</b> de '+r.el+'<br>🙌 Sem pedir: <b>'+r.free+'</b><br>🎁 Bônus: <b>'+r.bonus+'</b><br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+'<br>⚠️ Descontos: <b>−'+r.pen+'</b><br>🏆 Total: <b>'+(r.stars+r.beh+r.bonus-r.pen)+'</b></p>';
+    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ <b>'+r.stars+'</b> de '+r.max+' estrelas ('+p+'%)<br>✅ Todas tarefas: <b>'+r.full+'</b> de '+r.el+'<br>🙌 Sem pedir: <b>'+r.free+'</b><br>🎁 Extras concluídos: <b>'+r.bonus+' pts (R$ '+money+',00)</b><br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+'<br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total: <b>'+(r.stars+r.beh+r.bonus+r.at-r.pen)+'</b></p>';
     h+='<div class="bar"><i style="width:'+p+'%"></i></div>';
     h+='<div class="scroll"><table style="min-width:480px"><tr><th></th>';
     days.forEach(function(d,i){h+='<th>'+DIAS[i]+'</th>';});
@@ -435,7 +543,8 @@ function renderRep(app){
       var lbl=modeLabel(tk.m);
       h+='<div class="row" style="color:var(--ink)"><span>'+esc(tk.n)+(lbl?' ('+lbl+')':'')+'</span><span>'+r.perTask[i]+' de '+maxT+' estrelas</span></div>';
     });
-    (S.beh[k]||[]).forEach(function(e,i){h+='<div class="row" style="color:var(--ink)"><span>'+esc(e.n)+'</span><span>'+r.perBeh[i]+(e.x?'':' de '+r.el*e.p)+' pontos</span></div>';});
+    (S.beh[k]||[]).forEach(function(e,i){h+='<div class="row" style="color:var(--ink)"><span>'+esc(e.n)+'</span><span>'+r.perBeh[i]+' de '+(r.el*e.p)+' pontos</span></div>';});
+    (S.atitudes[k]||[]).forEach(function(e,i){if(r.perAt[i])h+='<div class="row" style="color:var(--c)"><span>'+esc(e.n)+' (Bônus)</span><span>+'+r.perAt[i]+' pontos</span></div>';});
     (S.pen[k]||[]).forEach(function(e,i){if(r.perPen[i])h+='<div class="row" style="color:#dc2626"><span>'+esc(e.n)+'</span><span>'+r.perPen[i]+'× (−'+r.perPen[i]*e.p+')</span></div>';});
     h+='</div>';
   });
@@ -455,7 +564,8 @@ function buildMsg(days){
   var m='📋 Relatório da semana, '+fmt(days[0])+' a '+fmt(days[6])+'\n';
   S.kids.forEach(function(kk){var k=kk.id;
     var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
-    m+='\n*'+kk.name+'*\n⭐ '+r.stars+' de '+r.max+' estrelas ('+p+'%)\n✅ Todas tarefas em '+r.full+' de '+r.el+' dias\n🙌 Sem pedir: '+r.free+'\n🎁 Bônus: '+r.bonus+'\n🧭 Comportamento: '+r.beh+' de '+r.behMax+'\n⚠️ Descontos: −'+r.pen+'\n🏆 Total: '+(r.stars+r.beh+r.bonus-r.pen)+'\n';
+    var money = Math.floor(r.bonus / 20) * 20;
+    m+='\n*'+kk.name+'*\n⭐ '+r.stars+' de '+r.max+' estrelas ('+p+'%)\n✅ Todas tarefas em '+r.full+' de '+r.el+' dias\n🙌 Sem pedir: '+r.free+'\n🎁 Extras: '+r.bonus+' pts (R$ '+money+',00)\n🌟 Atitudes Legais: +'+r.at+'\n🧭 Comportamento: '+r.beh+' de '+r.behMax+'\n⚠️ Atitudes Ruins: −'+r.pen+'\n🏆 Total: '+(r.stars+r.beh+r.bonus+r.at-r.pen)+'\n';
     r.t.forEach(function(tk,i){
       var maxT=days.reduce(function(acc,d){return acc+(!isTaskActiveOnDate(tk.m,d)||iso(d)>iso(new Date())?0:3);},0);
       m+='• '+tk.n+': '+r.perTask[i]+'/'+maxT+'\n';
@@ -464,7 +574,7 @@ function buildMsg(days){
   return m.trim();
 }
 
-function lstTxt(a){return (a||[]).map(function(e){return e.n+' | '+e.p+(e.x?' | extra':'');}).join('\n');}
+function lstTxt(a){return (a||[]).map(function(e){return e.n+' | '+e.p;}).join('\n');}
 function exTxt(k){return (S.extras[k]||[]).map(function(e){return e.n+' | '+e.p;}).join('\n');}
 
 function tasksTxt(k){
@@ -492,7 +602,7 @@ function parseTasks(id){
 
 function parseEx(id,d){
   var el=document.getElementById(id);if(!el)return [];
-  return el.value.split('\n').map(function(l){var a=l.split('|'),n=a[0].trim(),p=parseInt(a[1],10);return{n:n,p:Math.max(1,Math.min(10,p||d||2)),x:/extra|bônus|bonus/i.test(a[2]||'')?1:0};}).filter(function(e){return e.n;});
+  return el.value.split('\n').map(function(l){var a=l.split('|'),n=a[0].trim(),p=parseInt(a[1],10);return{n:n,p:Math.max(1,Math.min(10,p||d||2))};}).filter(function(e){return e.n;});
 }
 
 function renderCfg(app){
@@ -538,12 +648,13 @@ function renderCfg(app){
     h+='<div style="border:2px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;'+ks(k.id)+'">'
     +'<label for="nm_'+k.id+'" style="margin-top:0;font-size:1.15rem;color:var(--c)">Nome da criança '+(ix+1)+'</label><input id="nm_'+k.id+'" value="'+esc(k.name)+'">'
     +'<div style="margin-top:8px"><label for="gl_'+k.id+'">Meta (%)</label><input id="gl_'+k.id+'" type="number" min="10" max="100" value="'+curGoal(k.id)+'"></div>'
-    +'<div id="boxS_'+k.id+'"'+(isSem?'':' class="hide"')+'><label for="rwS_'+k.id+'">Recompensa Semanal</label><input id="rwS_'+k.id+'" value="'+esc(S.rewardsS[k.id]||'')+'" placeholder="Ex: R$ 20,00 ou Cinema"></div>'
-    +'<div id="boxM_'+k.id+'"'+(isSem?' class="hide"':'')+'><label for="rwM_'+k.id+'">Recompensa Mensal</label><input id="rwM_'+k.id+'" value="'+esc(S.rewardsM[k.id]||'')+'" placeholder="Ex: Brinquedo ou Passeio"></div>'
-    +'<label for="tk_'+k.id+'">Tarefas (use # Título para separar horários)</label><textarea id="tk_'+k.id+'">'+esc(tasksTxt(k.id))+'</textarea>'
-    +'<label for="ex_'+k.id+'">Extras (nome | estrelas)</label><textarea id="ex_'+k.id+'">'+esc(exTxt(k.id))+'</textarea>'
-    +'<label for="bh_'+k.id+'">Comportamento (nome | pontos)</label><textarea id="bh_'+k.id+'">'+esc(lstTxt(S.beh[k.id]))+'</textarea>'
-    +'<label for="pn_'+k.id+'">Descontos (nome | pontos a descontar)</label><textarea id="pn_'+k.id+'">'+esc(lstTxt(S.pen[k.id]))+'</textarea>'
+    +'<div id="boxS_'+k.id+'"'+(isSem?'':' class="hide"')+'><label for="rwS_'+k.id+'">Recompensa Semanal em Família</label><input id="rwS_'+k.id+'" value="'+esc(S.rewardsS[k.id]||'')+'" placeholder="Ex: Passeio no parque ou Cinema"></div>'
+    +'<div id="boxM_'+k.id+'"'+(isSem?' class="hide"':'')+'><label for="rwM_'+k.id+'">Recompensa Mensal em Família</label><input id="rwM_'+k.id+'" value="'+esc(S.rewardsM[k.id]||'')+'" placeholder="Ex: Viagem ou Passeio especial"></div>'
+    +'<label for="tk_'+k.id+'">Tarefas</label><textarea id="tk_'+k.id+'">'+esc(tasksTxt(k.id))+'</textarea>'
+    +'<label for="bh_'+k.id+'">Comportamento do dia (valor base | desconta a cada clique)</label><textarea id="bh_'+k.id+'" style="min-height:90px">'+esc(lstTxt(S.beh[k.id]))+'</textarea>'
+    +'<label for="at_'+k.id+'">Atitudes Legais (nome | pontos bônus)</label><textarea id="at_'+k.id+'" style="min-height:90px">'+esc(lstTxt(S.atitudes[k.id]))+'</textarea>'
+    +'<label for="ex_'+k.id+'">Extras para Ganhar Dinheiro (nome | pontos; 20 pts = R$ 20)</label><textarea id="ex_'+k.id+'" style="min-height:90px">'+esc(exTxt(k.id))+'</textarea>'
+    +'<label for="pn_'+k.id+'">Atitudes Ruins (nome | pontos a descontar)</label><textarea id="pn_'+k.id+'" style="min-height:90px">'+esc(lstTxt(S.pen[k.id]))+'</textarea>'
     +(S.kids.length>1?'<div style="margin-top:10px"><button class="btn rm" data-id="'+k.id+'">Remover esta criança</button></div>':'')+'</div>';
   });
 
@@ -572,8 +683,9 @@ function renderCfg(app){
       var rM=document.getElementById('rwM_'+k.id);if(rM)S.rewardsM[k.id]=rM.value.trim();
       var rS=document.getElementById('rwS_'+k.id);if(rS)S.rewardsS[k.id]=rS.value.trim();
       S.tasks[k.id]=parseTasks('tk_'+k.id);
-      S.extras[k.id]=parseEx('ex_'+k.id);
       S.beh[k.id]=parseEx('bh_'+k.id,10);
+      S.atitudes[k.id]=parseEx('at_'+k.id,2);
+      S.extras[k.id]=parseEx('ex_'+k.id,2);
       S.pen[k.id]=parseEx('pn_'+k.id,5);
     });
     var emEl=document.getElementById('em');if(emEl)S.em=emEl.value.trim();
@@ -591,7 +703,7 @@ function renderCfg(app){
     var id='k'+Date.now().toString(36),used=S.kids.map(function(k){return k.c;});
     var c=PAL.filter(function(x){return used.indexOf(x)<0;})[0]||PAL[S.kids.length%PAL.length];
     S.kids.push({id:id,name:'Criança '+(S.kids.length+1),c:c});
-    S.tasks[id]=base.slice();S.extras[id]=exb.slice();S.beh[id]=behD.slice();S.pen[id]=penD.slice();
+    S.tasks[id]=base.slice();S.beh[id]=behD.slice();S.atitudes[id]=atitudesD.slice();S.extras[id]=exb.slice();S.pen[id]=penD.slice();
     S.goals[id]=80;S.rewardsM[id]='';S.rewardsS[id]='';
     save();render();
   };
@@ -600,7 +712,7 @@ function renderCfg(app){
     if(!b.dataset.s){b.dataset.s=1;b.textContent='Confirmar remoção?';return;}
     collect();var id=b.dataset.id;
     S.kids=S.kids.filter(function(k){return k.id!==id;});
-    delete S.tasks[id];delete S.extras[id];delete S.beh[id];delete S.pen[id];
+    delete S.tasks[id];delete S.extras[id];delete S.beh[id];delete S.atitudes[id];delete S.pen[id];
     delete S.rewardsM[id];delete S.rewardsS[id];delete S.goals[id];
     if(kid===id)kid=S.kids[0].id;
     save();render();
@@ -609,7 +721,7 @@ function renderCfg(app){
   document.getElementById('back').onclick=function(){view='board';render();};
   document.getElementById('bk').onclick=function(){collect();save();var b=new Blob([JSON.stringify(S)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='backup-quadro-'+iso(new Date())+'.json';document.body.appendChild(a);a.click();a.remove();};
   document.getElementById('rf').onchange=function(){var f=this.files[0],lb=this.parentNode;if(!f)return;var rd=new FileReader();rd.onload=function(){try{var o=JSON.parse(rd.result);if(!o.kids)throw 0;S=o;ensure();save();kid=S.kids[0].id;view='board';render();}catch(e){lb.firstChild.textContent='Arquivo inválido';}};rd.readAsText(f);};
-  document.getElementById('rs').onclick=function(){if(this.dataset.s){S.done={};S.bonus={};S.bd={};S.pc={};S.cel={};save();view='board';render();}else{this.dataset.s=1;this.textContent='Confirmar limpeza?';}};
+  document.getElementById('rs').onclick=function(){if(this.dataset.s){S.done={};S.bonus={};S.bd={};S.atd={};S.pc={};S.cel={};save();view='board';render();}else{this.dataset.s=1;this.textContent='Confirmar limpeza?';}};
 }
 render();
 </script>
