@@ -49,7 +49,6 @@ td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1r
 .cell:focus-visible,.tab:focus-visible,.nav:focus-visible,.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .bar{height:22px;border-radius:12px;background:var(--soft);overflow:hidden;margin:8px 0 6px}
 .bar i{display:block;height:100%;background:var(--c);border-radius:12px;transition:width .4s}
-.bar.money i{background:#16a34a}
 .row{display:flex;justify-content:space-between;gap:8px;font-size:1rem;color:var(--mut)}
 .reward{margin-top:10px;font-size:1.1rem}
 .reward.ok{color:var(--c);font-weight:700}
@@ -113,7 +112,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},rewardsEx:{},goalsEx:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:8};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:9};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -167,8 +166,6 @@ function ensure(){
   if(!S.tasks)S.tasks={};
   if(!S.rewardsM)S.rewardsM={};
   if(!S.rewardsS)S.rewardsS={};
-  if(!S.rewardsEx)S.rewardsEx={};
-  if(!S.goalsEx)S.goalsEx={};
   if(!S.goals)S.goals={};
   if(!S.beh)S.beh={};
   if(!S.atitudes)S.atitudes={};
@@ -180,20 +177,18 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==8||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==8||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==8||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==9||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==9||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==9||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
     if(!S.rewardsM[k.id])S.rewardsM[k.id]=S.rewardM||'Recompensa mensal em família';
-    if(!S.rewardsEx[k.id])S.rewardsEx[k.id]='R$ 20,00';
-    if(!S.goalsEx[k.id])S.goalsEx[k.id]=20;
     if(!S.goals[k.id])S.goals[k.id]=S.goal||80;
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==8){S.ver=8;save();}
+  if(S.ver!==9){S.ver=9;save();}
 }
 ensure();
 
@@ -206,8 +201,6 @@ function curRw(k){
 }
 
 function curGoal(k){return S.goals[k]||S.goal||80;}
-function curRwEx(k){return S.rewardsEx[k]||'R$ 20,00';}
-function curGoalEx(k){return +S.goalsEx[k]||20;}
 
 function bToggle(date,i){var key=date+'|'+kid+'|'+i;if(S.bonus[key])delete S.bonus[key];else S.bonus[key]=1;save();render();}
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -287,8 +280,7 @@ function stats(){
   var g=curGoal(kid),w=(S.per==='sem');
   var wPct=r.maxNet?Math.max(0,Math.round((r.stars+r.beh+r.bonus+r.at-r.pen)/r.maxNet*100)):0;
   var extraPoints = w ? r.bonus : m.xm;
-  var targetEx = curGoalEx(kid);
-  var timesWon = Math.floor(extraPoints / targetEx);
+  var moneyEarned = extraPoints;
 
   return{
     wk:r.stars+r.beh,
@@ -297,8 +289,7 @@ function stats(){
     at:r.at,
     pn:r.pen,
     extraPoints:extraPoints,
-    targetEx:targetEx,
-    timesWon:timesWon,
+    moneyEarned:moneyEarned,
     pct:w?wPct:m.pctDecor,
     pctProj:m.pctProj,
     xm:w?(r.bonus+r.at):(m.xm+m.at),
@@ -325,7 +316,6 @@ function render(){
   if(view==='cfg'){return renderCfg(app);}
   if(view==='rep'){return renderRep(app);}
   var t=S.tasks[kid]||[],days=weekDays(),td=iso(new Date()),st=stats(),rwTxt=curRw(kid);
-  var rwExTxt=curRwEx(kid);
   var isSem = (S.per === 'sem');
 
   var h='<div class="tabs">';
@@ -356,16 +346,13 @@ function render(){
 
   var ex=S.extras[kid]||[];
   if(ex.length){
-    var extraPct = Math.min(100, Math.round((st.extraPoints / st.targetEx) * 100));
-    var exGanhos = st.timesWon > 0 ? ' (🎉 Ganhou '+st.timesWon+'x: '+esc(rwExTxt)+')' : '';
-    h+='<div class="card"><b>Atividades Extras</b> <span class="leg">('+st.targetEx+' pts para ganhar: '+esc(rwExTxt)+')</span>'
-      +'<div class="bar money"><i style="width:'+extraPct+'%"></i></div>'
-      +'<div class="row"><span>Pontos nos Extras: <b>'+st.extraPoints+' de '+st.targetEx+'</b></span><span><b>'+esc(rwExTxt)+exGanhos+'</b></span></div>'
+    h+='<div class="card"><b>Atividades Extras</b> <span class="leg">(1 ponto = R$ 1,00)</span>'
+      +'<div class="row" style="margin:8px 0;font-size:1.15rem;color:var(--ink)"><span>Pontos extras acumulados: <b>'+st.extraPoints+'</b></span><span>Recompensa: <b style="color:#16a34a">R$ '+st.moneyEarned+',00</b></span></div>'
       +'<div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});
     h+='</tr>';
     ex.forEach(function(e,i){
-      h+='<tr><td class="t">'+esc(e.n)+' (+'+e.p+')</td>';
+      h+='<tr><td class="t">'+esc(e.n)+' (+'+e.p+' pt'+(e.p>1?'s':'')+' = R$ '+e.p+',00)</td>';
       days.forEach(function(d){var s=iso(d),on=S.bonus[s+'|'+kid+'|'+i],fut=s>td;
         h+='<td><button class="cell xb'+(on?' on l3':'')+(s===td?' td':'')+'" data-d="'+s+'" data-x="'+i+'"'+(fut?' disabled':'')+' aria-label="Extra '+esc(e.n)+'">'+(on?'+'+e.p:'')+'</button></td>';});
       h+='</tr>';});
@@ -537,12 +524,9 @@ function renderRep(app){
   S.kids.forEach(function(kk){
     var k=kk.id;
     var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
-    var rwEx = curRwEx(k), targetEx = curGoalEx(k);
-    var timesWon = Math.floor(r.bonus / targetEx);
-    var wonText = timesWon > 0 ? ' ('+timesWon+'x: '+esc(rwEx)+')' : '';
     
     h+='<div class="card kc" style="'+ks(k)+'"><b style="font-size:1.3rem;color:var(--c)">'+esc(kk.name)+'</b>';
-    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ <b>'+r.stars+'</b> de '+r.max+' estrelas ('+p+'%)<br>✅ Todas tarefas: <b>'+r.full+'</b> de '+r.el+'<br>🙌 Sem pedir: <b>'+r.free+'</b><br>🎁 Extras concluídos: <b>'+r.bonus+' de '+targetEx+' pts</b>'+wonText+'<br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+'<br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total: <b>'+(r.stars+r.beh+r.bonus+r.at-r.pen)+'</b></p>';
+    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ <b>'+r.stars+'</b> de '+r.max+' estrelas ('+p+'%)<br>✅ Todas tarefas: <b>'+r.full+'</b> de '+r.el+'<br>🙌 Sem pedir: <b>'+r.free+'</b><br>🎁 Extras concluídos: <b>'+r.bonus+' pts (R$ '+r.bonus+',00)</b><br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+'<br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total: <b>'+(r.stars+r.beh+r.bonus+r.at-r.pen)+'</b></p>';
     h+='<div class="bar"><i style="width:'+p+'%"></i></div>';
     h+='<div class="scroll"><table style="min-width:480px"><tr><th></th>';
     days.forEach(function(d,i){h+='<th>'+DIAS[i]+'</th>';});
@@ -575,10 +559,7 @@ function buildMsg(days){
   var m='📋 Relatório da semana, '+fmt(days[0])+' a '+fmt(days[6])+'\n';
   S.kids.forEach(function(kk){var k=kk.id;
     var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
-    var rwEx = curRwEx(k), targetEx = curGoalEx(k);
-    var timesWon = Math.floor(r.bonus / targetEx);
-    var wonText = timesWon > 0 ? ' ('+timesWon+'x: '+rwEx+')' : '';
-    m+='\n*'+kk.name+'*\n⭐ '+r.stars+' de '+r.max+' estrelas ('+p+'%)\n✅ Todas tarefas em '+r.full+' de '+r.el+' dias\n🙌 Sem pedir: '+r.free+'\n🎁 Extras: '+r.bonus+' de '+targetEx+' pts'+wonText+'\n🌟 Atitudes Legais: +'+r.at+'\n🧭 Comportamento: '+r.beh+' de '+r.behMax+'\n⚠️ Atitudes Ruins: −'+r.pen+'\n🏆 Total: '+(r.stars+r.beh+r.bonus+r.at-r.pen)+'\n';
+    m+='\n*'+kk.name+'*\n⭐ '+r.stars+' de '+r.max+' estrelas ('+p+'%)\n✅ Todas tarefas em '+r.full+' de '+r.el+' dias\n🙌 Sem pedir: '+r.free+'\n🎁 Extras: '+r.bonus+' pts (R$ '+r.bonus+',00)\n🌟 Atitudes Legais: +'+r.at+'\n🧭 Comportamento: '+r.beh+' de '+r.behMax+'\n⚠️ Atitudes Ruins: −'+r.pen+'\n🏆 Total: '+(r.stars+r.beh+r.bonus+r.at-r.pen)+'\n';
     r.t.forEach(function(tk,i){
       var maxT=days.reduce(function(acc,d){return acc+(!isTaskActiveOnDate(tk.m,d)||iso(d)>iso(new Date())?0:3);},0);
       m+='• '+tk.n+': '+r.perTask[i]+'/'+maxT+'\n';
@@ -650,7 +631,7 @@ function renderCfg(app){
   }
 
   var isSem = (S.per === 'sem');
-  h+='<div style="margin:12px 0"><label for="per">Período da recompensa</label><select id="per"><option value="sem"'+(isSem?' selected':'')+'>Semanal</option><option value="mes"'+(isSem?'':' selected')+'>Mensal</option></select></div>';
+  h+='<div style="margin:12px 0"><label for="per">Período da recompensa principal</label><select id="per"><option value="sem"'+(isSem?' selected':'')+'>Semanal</option><option value="mes"'+(isSem?'':' selected')+'>Mensal</option></select></div>';
   h+='<p class="leg" style="margin:8px 0 0"><b>Organização das Tarefas:</b><br>'
     +'• <code># Título</code> cria faixas de separação (ex: <i># Manhã</i>)<br>'
     +'• <code>| dom-qui</code>: Ativa de Domingo a Quinta<br>'
@@ -660,17 +641,13 @@ function renderCfg(app){
   S.kids.forEach(function(k,ix){
     h+='<div style="border:2px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;'+ks(k.id)+'">'
     +'<label for="nm_'+k.id+'" style="margin-top:0;font-size:1.15rem;color:var(--c)">Nome da criança '+(ix+1)+'</label><input id="nm_'+k.id+'" value="'+esc(k.name)+'">'
-    +'<div style="margin-top:8px"><label for="gl_'+k.id+'">Meta (%)</label><input id="gl_'+k.id+'" type="number" min="10" max="100" value="'+curGoal(k.id)+'"></div>'
+    +'<div style="margin-top:8px"><label for="gl_'+k.id+'">Meta (%) da Recompensa em Família</label><input id="gl_'+k.id+'" type="number" min="10" max="100" value="'+curGoal(k.id)+'"></div>'
     +'<div id="boxS_'+k.id+'"'+(isSem?'':' class="hide"')+'><label for="rwS_'+k.id+'">Recompensa Semanal em Família</label><input id="rwS_'+k.id+'" value="'+esc(S.rewardsS[k.id]||'')+'" placeholder="Ex: Passeio no parque ou Cinema"></div>'
     +'<div id="boxM_'+k.id+'"'+(isSem?' class="hide"':'')+'><label for="rwM_'+k.id+'">Recompensa Mensal em Família</label><input id="rwM_'+k.id+'" value="'+esc(S.rewardsM[k.id]||'')+'" placeholder="Ex: Viagem ou Passeio especial"></div>'
-    +'<div style="display:flex;gap:8px;margin-top:8px">'
-    +'<div style="flex:2"><label for="rwEx_'+k.id+'">Recompensa dos Extras (Dinheiro / Prêmio)</label><input id="rwEx_'+k.id+'" value="'+esc(curRwEx(k.id))+'" placeholder="Ex: R$ 20,00"></div>'
-    +'<div style="flex:1"><label for="glEx_'+k.id+'">Pontos necessários</label><input id="glEx_'+k.id+'" type="number" min="1" max="100" value="'+curGoalEx(k.id)+'"></div>'
-    +'</div>'
     +'<label for="tk_'+k.id+'">Tarefas</label><textarea id="tk_'+k.id+'">'+esc(tasksTxt(k.id))+'</textarea>'
     +'<label for="bh_'+k.id+'">Comportamento do dia (valor base | desconta a cada clique)</label><textarea id="bh_'+k.id+'" style="min-height:90px">'+esc(lstTxt(S.beh[k.id]))+'</textarea>'
     +'<label for="at_'+k.id+'">Atitudes Legais (nome | pontos bônus)</label><textarea id="at_'+k.id+'" style="min-height:90px">'+esc(lstTxt(S.atitudes[k.id]))+'</textarea>'
-    +'<label for="ex_'+k.id+'">Extras para Ganhar Dinheiro (nome | pontos)</label><textarea id="ex_'+k.id+'" style="min-height:90px">'+esc(exTxt(k.id))+'</textarea>'
+    +'<label for="ex_'+k.id+'">Extras (nome | pontos que valem R$ 1 cada)</label><textarea id="ex_'+k.id+'" style="min-height:90px">'+esc(exTxt(k.id))+'</textarea>'
     +'<label for="pn_'+k.id+'">Atitudes Ruins (nome | pontos a descontar)</label><textarea id="pn_'+k.id+'" style="min-height:90px">'+esc(lstTxt(S.pen[k.id]))+'</textarea>'
     +(S.kids.length>1?'<div style="margin-top:10px"><button class="btn rm" data-id="'+k.id+'">Remover esta criança</button></div>':'')+'</div>';
   });
@@ -699,8 +676,6 @@ function renderCfg(app){
       var gEl=document.getElementById('gl_'+k.id);if(gEl)S.goals[k.id]=Math.max(10,Math.min(100,+gEl.value||80));
       var rM=document.getElementById('rwM_'+k.id);if(rM)S.rewardsM[k.id]=rM.value.trim();
       var rS=document.getElementById('rwS_'+k.id);if(rS)S.rewardsS[k.id]=rS.value.trim();
-      var rEx=document.getElementById('rwEx_'+k.id);if(rEx)S.rewardsEx[k.id]=rEx.value.trim();
-      var gEx=document.getElementById('glEx_'+k.id);if(gEx)S.goalsEx[k.id]=Math.max(1,Math.min(100,+gEx.value||20));
       S.tasks[k.id]=parseTasks('tk_'+k.id);
       S.beh[k.id]=parseEx('bh_'+k.id,10);
       S.atitudes[k.id]=parseEx('at_'+k.id,2);
@@ -723,7 +698,7 @@ function renderCfg(app){
     var c=PAL.filter(function(x){return used.indexOf(x)<0;})[0]||PAL[S.kids.length%PAL.length];
     S.kids.push({id:id,name:'Criança '+(S.kids.length+1),c:c});
     S.tasks[id]=base.slice();S.beh[id]=behD.slice();S.atitudes[id]=atitudesD.slice();S.extras[id]=exb.slice();S.pen[id]=penD.slice();
-    S.goals[id]=80;S.rewardsM[id]='';S.rewardsS[id]='';S.rewardsEx[id]='R$ 20,00';S.goalsEx[id]=20;
+    S.goals[id]=80;S.rewardsM[id]='';S.rewardsS[id]='';
     save();render();
   };
 
@@ -732,7 +707,7 @@ function renderCfg(app){
     collect();var id=b.dataset.id;
     S.kids=S.kids.filter(function(k){return k.id!==id;});
     delete S.tasks[id];delete S.extras[id];delete S.beh[id];delete S.atitudes[id];delete S.pen[id];
-    delete S.rewardsM[id];delete S.rewardsS[id];delete S.rewardsEx[id];delete S.goalsEx[id];delete S.goals[id];
+    delete S.rewardsM[id];delete S.rewardsS[id];delete S.goals[id];
     if(kid===id)kid=S.kids[0].id;
     save();render();
   };});
