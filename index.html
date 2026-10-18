@@ -26,6 +26,7 @@ table{border-collapse:separate;border-spacing:6px;width:100%;min-width:560px}
 th{font-weight:600;color:var(--mut);font-size:.95rem;padding-bottom:2px}
 th.today{color:var(--c);font-weight:700}
 td.t{font-size:1.15rem;font-weight:600;text-align:left;padding-right:8px;min-width:150px}
+td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1rem;padding:8px 12px;border-radius:12px;text-align:left}
 .cell{width:100%;height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);cursor:pointer;font:700 1.25rem 'Fredoka',sans-serif;line-height:1;color:#fff}
 .cell.on{background:var(--c);border-color:var(--c)}
 .cell.td{border-color:var(--c)}.cell.l2{filter:brightness(1.12)}.cell.l1{filter:brightness(1.3)}.cell.pn.on{background:#ef4444;border-color:#ef4444}.cell.l0{background:#9ca3af;border-color:#9ca3af;filter:none}
@@ -55,7 +56,7 @@ td.t{font-size:1.15rem;font-weight:600;text-align:left;padding-right:8px;min-wid
 .foot{display:flex;justify-content:center;margin-top:18px}
 label{display:block;font-weight:600;margin:12px 0 4px}
 textarea,input,select{width:100%;font:1rem 'Fredoka',sans-serif;padding:10px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
-textarea{min-height:120px}
+textarea{min-height:160px}
 .hide{display:none}
 </style>
 </head>
@@ -67,6 +68,7 @@ var DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 var base=[
   // MANHÃ
+  {h:'🌅 Manhã'},
   {n:'Arrumar a cama',m:'all'},
   {n:'Escovar os dentes manhã',m:'all'},
   {n:'Remédios manhã',m:'all'},
@@ -74,12 +76,14 @@ var base=[
   {n:'Lancheira',m:'dom-qui'},
   
   // TARDE
+  {h:'☀️ Tarde'},
   {n:'Escovar os dentes após o almoço',m:'all'},
   {n:'Fazer a lição',m:'seg-sex'},
   {n:'Remédios tarde',m:'all'},
   {n:'Guardar os brinquedos',m:'all'},
   
   // NOITE
+  {h:'🌙 Noite'},
   {n:'Tomar banho',m:'all'},
   {n:'Dobrar roupa trocada',m:'all'},
   {n:'Escovar os dentes noite',m:'all'},
@@ -120,12 +124,12 @@ function normalizeTaskMode(m){
 }
 
 function isTaskActiveOnDate(mode, d){
-  var day=d.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  var day=d.getDay();
   mode=normalizeTaskMode(mode);
-  if(mode==='dom-qui') return day>=0 && day<=4; // Domingo a Quinta
-  if(mode==='seg-sex') return day>=1 && day<=5; // Segunda a Sexta
-  if(mode==='sab-dom') return day===0 || day===6; // Sábado e Domingo
-  return true; // 'all' (Todos os 7 dias, de Domingo a Sábado)
+  if(mode==='dom-qui') return day>=0 && day<=4;
+  if(mode==='seg-sex') return day>=1 && day<=5;
+  if(mode==='sab-dom') return day===0 || day===6;
+  return true;
 }
 
 function modeLabel(mode){
@@ -148,10 +152,12 @@ function ensure(){
   
   S.kids.forEach(function(k){
     if(!S.tasks[k.id]){
-      S.tasks[k.id]=base.map(function(t){return{n:t.n,m:t.m};});
+      S.tasks[k.id]=base.slice();
     }else{
       S.tasks[k.id]=S.tasks[k.id].map(function(t){
+        if(t.h) return {h:t.h};
         if(typeof t==='string'){
+          if(t.indexOf('#')===0) return {h:t.replace(/^#\s*/,'')};
           var isMat=/lancheira|material/i.test(t);
           var isLic=/lição|licao/i.test(t);
           return {n:t, m:isMat?'dom-qui':(isLic?'seg-sex':'all')};
@@ -183,10 +189,9 @@ function curGoal(k){return S.goals[k]||S.goal||80;}
 function bToggle(date,i){var key=date+'|'+kid+'|'+i;if(S.bonus[key])delete S.bonus[key];else S.bonus[key]=1;save();render();}
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
-// Define o domingo da semana atual ou navegada
 function sunday(n){
   var d=new Date();d.setHours(12,0,0,0);
-  var w=d.getDay(); // 0 = Domingo
+  var w=d.getDay();
   d.setDate(d.getDate()-w+n*7);
   return d;
 }
@@ -216,7 +221,7 @@ function monthSum(k){
   var pre=y+'-'+String(m+1).padStart(2,'0');
   var todayNum=now.getDate();
   var dim=new Date(y,m+1,0).getDate();
-  var t=S.tasks[k]||[],ex=S.extras[k]||[],bh=S.beh[k]||[],pe=S.pen[k]||[];
+  var t=(S.tasks[k]||[]).filter(function(item){return !item.h;}),ex=S.extras[k]||[],bh=S.beh[k]||[],pe=S.pen[k]||[];
   var o={tk:0,xm:0,bh:0,pn:0};
 
   for(var a in S.done){if(a.indexOf(pre)===0&&a.split('|')[1]===k)o.tk+=S.done[a];}
@@ -286,6 +291,10 @@ function render(){
   days.forEach(function(d,i){var s=iso(d);h+='<th class="'+(s===td?'today':'')+'">'+DIAS[i]+'<br>'+fmt(d)+'</th>';});
   h+='</tr>';
   t.forEach(function(tk,i){
+    if(tk.h){
+      h+='<tr><td colspan="8" class="sec-head">'+esc(tk.h)+'</td></tr>';
+      return;
+    }
     var lbl=modeLabel(tk.m);
     h+='<tr><td class="t">'+esc(tk.n)+(lbl?' <small style="color:var(--mut);font-weight:400">('+lbl+')</small>':'')+'</td>';
     days.forEach(function(d){
@@ -373,7 +382,7 @@ function render(){
 }
 
 function calc(k,days){
-  var t=S.tasks[k]||[],td=iso(new Date()),el=0,stars=0,full=0,free=0;
+  var t=(S.tasks[k]||[]).filter(function(item){return !item.h;}),td=iso(new Date()),el=0,stars=0,full=0,free=0;
   var bh=S.beh[k]||[],pe=S.pen[k]||[];
   var beh=0,behMax=0,pen=0;
   var perBeh=bh.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[],perTask=t.map(function(){return 0;});
@@ -383,12 +392,17 @@ function calc(k,days){
     var s=iso(d);
     if(s>td){perDay.push(null);return;}
     el++;var c=0,all=true,activeTasks=0;
-    t.forEach(function(tk,i){
+    
+    // Contagem real das tarefas ignorando cabeçalhos
+    var realIdx = -1;
+    (S.tasks[k]||[]).forEach(function(tk, i){
+      if(tk.h) return;
+      realIdx++;
       if(!isTaskActiveOnDate(tk.m, d))return;
       activeTasks++;
       var v=S.done[s+'|'+k+'|'+i];
       if(v===undefined){all=false;return;}
-      c+=v;perTask[i]+=v;if(v===3)free++;
+      c+=v;perTask[realIdx]+=v;if(v===3)free++;
     });
     maxPossivel+=activeTasks*3;
     stars+=c;if(activeTasks>0&&all)full++;perDay.push(c);
@@ -461,21 +475,30 @@ function buildMsg(days){
 
 function lstTxt(a){return (a||[]).map(function(e){return e.n+' | '+e.p+(e.x?' | extra':'');}).join('\n');}
 function exTxt(k){return (S.extras[k]||[]).map(function(e){return e.n+' | '+e.p;}).join('\n');}
+
 function tasksTxt(k){
   return (S.tasks[k]||[]).map(function(tk){
+    if(tk.h) return '# ' + tk.h;
     var m=normalizeTaskMode(tk.m);
     return tk.n + (m!=='all' ? ' | ' + m : '');
   }).join('\n');
 }
+
 function parseTasks(id){
   var el=document.getElementById(id);if(!el)return [];
   return el.value.split('\n').map(function(l){
+    l=l.trim();
+    if(!l)return null;
+    if(l.indexOf('#')===0){
+      return {h: l.replace(/^#\s*/,'')};
+    }
     var a=l.split('|'),n=a[0].trim();
     if(!n)return null;
     var mode = a[1] ? a[1].trim() : 'all';
     return{n:n, m:normalizeTaskMode(mode)};
   }).filter(Boolean);
 }
+
 function parseEx(id,d){
   var el=document.getElementById(id);if(!el)return [];
   return el.value.split('\n').map(function(l){var a=l.split('|'),n=a[0].trim(),p=parseInt(a[1],10);return{n:n,p:Math.max(1,Math.min(10,p||d||2)),x:/extra|bônus|bonus/i.test(a[2]||'')?1:0};}).filter(function(e){return e.n;});
@@ -514,10 +537,10 @@ function renderCfg(app){
 
   var isSem = (S.per === 'sem');
   h+='<div style="margin:12px 0"><label for="per">Período da recompensa</label><select id="per"><option value="sem"'+(isSem?' selected':'')+'>Semanal</option><option value="mes"'+(isSem?'':' selected')+'>Mensal</option></select></div>';
-  h+='<p class="leg" style="margin:8px 0 0"><b>Regras de contagem por tarefa:</b><br>'
-    +'• Padrão (sem nada): Ativa de <b>Domingo a Sábado</b> (todos os 7 dias)<br>'
-    +'• <code>| dom-qui</code>: Ativa de <b>Domingo a Quinta</b> (Sexta e Sábado = Folga)<br>'
-    +'• <code>| seg-sex</code>: Ativa de <b>Segunda a Sexta</b> (Sábado e Domingo = Folga)</p>';
+  h+='<p class="leg" style="margin:8px 0 0"><b>Dicas de organização:</b><br>'
+    +'• Use <code># Título</code> para criar faixas divisórias (ex: <i># 🌅 Manhã</i>)<br>'
+    +'• <code>| dom-qui</code>: Ativa de Domingo a Quinta<br>'
+    +'• <code>| seg-sex</code>: Ativa de Segunda a Sexta</p>';
 
   S.kids.forEach(function(k,ix){
     h+='<div style="border:2px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;'+ks(k.id)+'">'
@@ -525,7 +548,7 @@ function renderCfg(app){
     +'<div style="margin-top:8px"><label for="gl_'+k.id+'">Meta (%)</label><input id="gl_'+k.id+'" type="number" min="10" max="100" value="'+curGoal(k.id)+'"></div>'
     +'<div id="boxS_'+k.id+'"'+(isSem?'':' class="hide"')+'><label for="rwS_'+k.id+'">Recompensa Semanal</label><input id="rwS_'+k.id+'" value="'+esc(S.rewardsS[k.id]||'')+'" placeholder="Ex: R$ 20,00 ou Cinema"></div>'
     +'<div id="boxM_'+k.id+'"'+(isSem?' class="hide"':'')+'><label for="rwM_'+k.id+'">Recompensa Mensal</label><input id="rwM_'+k.id+'" value="'+esc(S.rewardsM[k.id]||'')+'" placeholder="Ex: Brinquedo ou Passeio"></div>'
-    +'<label for="tk_'+k.id+'">Tarefas (use | dom-qui ou | seg-sex)</label><textarea id="tk_'+k.id+'">'+esc(tasksTxt(k.id))+'</textarea>'
+    +'<label for="tk_'+k.id+'">Tarefas (use # Título para separar horários)</label><textarea id="tk_'+k.id+'">'+esc(tasksTxt(k.id))+'</textarea>'
     +'<label for="ex_'+k.id+'">Extras (nome | estrelas)</label><textarea id="ex_'+k.id+'">'+esc(exTxt(k.id))+'</textarea>'
     +'<label for="bh_'+k.id+'">Comportamento (nome | pontos)</label><textarea id="bh_'+k.id+'">'+esc(lstTxt(S.beh[k.id]))+'</textarea>'
     +'<label for="pn_'+k.id+'">Descontos (nome | pontos a descontar)</label><textarea id="pn_'+k.id+'">'+esc(lstTxt(S.pen[k.id]))+'</textarea>'
