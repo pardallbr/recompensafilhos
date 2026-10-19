@@ -112,7 +112,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:9};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:10};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -177,9 +177,9 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==9||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==9||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==9||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==10||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==10||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==10||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
@@ -188,7 +188,7 @@ function ensure(){
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==9){S.ver=9;save();}
+  if(S.ver!==10){S.ver=10;save();}
 }
 ensure();
 
@@ -237,7 +237,7 @@ function monthSum(k){
   var pre=y+'-'+String(m+1).padStart(2,'0');
   var todayNum=now.getDate();
   var dim=new Date(y,m+1,0).getDate();
-  var t=(S.tasks[k]||[]).filter(function(item){return !item.h;});
+  var allTasks=S.tasks[k]||[];
   var ex=S.extras[k]||[],bh=S.beh[k]||[],at=S.atitudes[k]||[],pe=S.pen[k]||[];
   var o={tk:0,xm:0,bh:0,at:0,pn:0};
 
@@ -261,41 +261,44 @@ function monthSum(k){
   for(var day=1;day<=dim;day++){
     var dt=new Date(y,m,day);
     var tDay=0;
-    t.forEach(function(tk){if(isTaskActiveOnDate(tk.m, dt))tDay+=3;});
+    allTasks.forEach(function(tk){
+      if(!tk.h && isTaskActiveOnDate(tk.m, dt)) tDay+=3;
+    });
     var behDay=bh.reduce(function(x,e){return x+e.p;},0);
     maxTotal+=(tDay+behDay);
     if(day<=todayNum)maxDecor+=(tDay+behDay);
   }
 
-  o.net=o.tk+o.xm+o.bh+o.at-o.pn;
-  o.maxDecor=maxDecor;
-  o.maxTotal=maxTotal;
-  o.pctDecor=maxDecor?Math.max(0,Math.round(o.net/maxDecor*100)):0;
-  o.pctProj=maxTotal?Math.max(0,Math.round(o.net/maxTotal*100)):0;
+  // Pontuação líquida do mês (obrigações + comportamento + bônus de atitudes - atitudes ruins)
+  o.net = Math.max(0, o.tk + o.bh + o.at - o.pn);
+  o.maxDecor = maxDecor;
+  o.maxTotal = maxTotal;
+  o.pctDecor = maxDecor ? Math.min(100, Math.round(o.net / maxDecor * 100)) : 0;
+  o.pctProj = maxTotal ? Math.min(100, Math.round(o.net / maxTotal * 100)) : 0;
   return o;
 }
 
 function stats(){
   var r=calc(kid,weekDays()),m=monthSum(kid);
   var g=curGoal(kid),w=(S.per==='sem');
-  var wPct=r.maxNet?Math.max(0,Math.round((r.stars+r.beh+r.bonus+r.at-r.pen)/r.maxNet*100)):0;
+  
+  // Total da semana delimitado entre 0 e 100%
+  var wNet = Math.max(0, r.stars + r.beh + r.at - r.pen);
+  var wPct = r.maxNet ? Math.min(100, Math.round(wNet / r.maxNet * 100)) : 0;
   var extraPoints = w ? r.bonus : m.xm;
-  var moneyEarned = extraPoints;
 
   return{
-    wk:r.stars+r.beh,
-    wkMax:r.maxNet,
-    xb:r.bonus,
-    at:r.at,
-    pn:r.pen,
-    extraPoints:extraPoints,
-    moneyEarned:moneyEarned,
-    pct:w?wPct:m.pctDecor,
-    pctProj:m.pctProj,
-    xm:w?(r.bonus+r.at):(m.xm+m.at),
-    mpn:w?r.pen:m.pn,
-    goal:g,
-    goalHit:w?(r.maxNet&&wPct>=g):(m.maxDecor&&m.pctDecor>=g)
+    wk: Math.max(0, r.stars + r.beh),
+    wkMax: r.maxNet,
+    xb: r.bonus,
+    at: r.at,
+    pn: r.pen,
+    extraPoints: extraPoints,
+    moneyEarned: extraPoints,
+    pct: w ? wPct : m.pctDecor,
+    pctProj: m.pctProj,
+    goal: g,
+    goalHit: w ? (r.maxNet && wPct >= g) : (m.maxDecor && m.pctDecor >= g)
   };
 }
 
@@ -315,7 +318,7 @@ function render(){
   app.className='kc';app.style.cssText=ks(kid);
   if(view==='cfg'){return renderCfg(app);}
   if(view==='rep'){return renderRep(app);}
-  var t=S.tasks[kid]||[],days=weekDays(),td=iso(new Date()),st=stats(),rwTxt=curRw(kid);
+  var allTasks=S.tasks[kid]||[],days=weekDays(),td=iso(new Date()),st=stats(),rwTxt=curRw(kid);
   var isSem = (S.per === 'sem');
 
   var h='<div class="tabs">';
@@ -324,7 +327,7 @@ function render(){
   h+='<div class="scroll"><table><tr><th></th>';
   days.forEach(function(d,i){var s=iso(d);h+='<th class="'+(s===td?'today':'')+'">'+DIAS[i]+'<br>'+fmt(d)+'</th>';});
   h+='</tr>';
-  t.forEach(function(tk,i){
+  allTasks.forEach(function(tk,i){
     if(tk.h){
       h+='<tr><td colspan="8" class="sec-head">'+esc(tk.h)+'</td></tr>';
       return;
@@ -347,7 +350,7 @@ function render(){
   var ex=S.extras[kid]||[];
   if(ex.length){
     h+='<div class="card"><b>Atividades Extras</b> <span class="leg">(1 ponto = R$ 1,00)</span>'
-      +'<div class="row" style="margin:8px 0;font-size:1.15rem;color:var(--ink)"><span>Pontos extras acumulados: <b>'+st.extraPoints+'</b></span><span>Recompensa: <b style="color:#16a34a">R$ '+st.moneyEarned+',00</b></span></div>'
+      +'<div class="row" style="margin:8px 0;font-size:1.15rem;color:var(--ink)"><span>Pontos extras da semana: <b>'+st.extraPoints+'</b></span><span>Recompensa em dinheiro: <b style="color:#16a34a">R$ '+st.moneyEarned+',00</b></span></div>'
       +'<div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});
     h+='</tr>';
@@ -406,12 +409,12 @@ function render(){
 
   if(pm)h+='<div class="pmb">Modo pais ativo. <button class="btn" id="pmx" style="margin-left:8px;padding:6px 12px">Sair</button></div>';
 
-  var wp=st.wkMax?Math.round(Math.max(0,st.wk+st.at-st.pn)/st.wkMax*100):0;
-  h+='<div class="card"><b>Esta semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' extras':'')+(st.at?' + '+st.at+' atitudes':'')+(st.pn?' − '+st.pn+' atitudes ruins':'')+'</span><span>'+wp+'%</span></div></div>';
+  var wp = st.pct;
+  h+='<div class="card"><b>Esta semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' extras':'')+(st.at?' + '+st.at+' atitudes':'')+(st.pn?' − '+st.pn+' ruins':'')+'</span><span>'+wp+'%</span></div></div>';
 
   h+='<div class="card"><b>'+(isSem?'Meta da semana':'Meta do mês')+'</b>'
     +'<div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/st.goal*100))+'%"></i></div>'
-    +'<div class="row"><span>'+st.pct+'% '+(isSem?'concluído':'de aproveitamento')+(st.xm?' (+'+st.xm+' bônus)':'')+(st.mpn?' (−'+st.mpn+' atitudes ruins)':'')+'</span><span>meta: '+st.goal+'%</span></div>';
+    +'<div class="row"><span>'+st.pct+'% '+(isSem?'concluído':'de aproveitamento')+'</span><span>meta: '+st.goal+'%</span></div>';
   if(!isSem){
     h+='<div class="row" style="font-size:0.85rem;margin-top:4px;color:var(--mut)"><span>Ritmo geral no mês inteiro: '+st.pctProj+'%</span></div>';
   }
@@ -467,10 +470,13 @@ function render(){
 }
 
 function calc(k,days){
-  var t=(S.tasks[k]||[]).filter(function(item){return !item.h;}),td=iso(new Date()),el=0,stars=0,full=0,free=0;
+  var allTasks=S.tasks[k]||[];
+  var tasksOnly=allTasks.filter(function(item){return !item.h;});
+  var td=iso(new Date()),el=0,stars=0,full=0,free=0;
   var bh=S.beh[k]||[],at=S.atitudes[k]||[],pe=S.pen[k]||[];
   var beh=0,behMax=0,atBonus=0,pen=0;
-  var perBeh=bh.map(function(){return 0;}),perAt=at.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[],perTask=t.map(function(){return 0;});
+  var perBeh=bh.map(function(){return 0;}),perAt=at.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[];
+  var perTask=allTasks.map(function(){return 0;}); // Mapeia exatamente a lista original
   var maxPossivel=0;
 
   days.forEach(function(d){
@@ -478,15 +484,13 @@ function calc(k,days){
     if(s>td){perDay.push(null);return;}
     el++;var c=0,all=true,activeTasks=0;
     
-    var realIdx = -1;
-    (S.tasks[k]||[]).forEach(function(tk, i){
+    allTasks.forEach(function(tk, i){
       if(tk.h) return;
-      realIdx++;
-      if(!isTaskActiveOnDate(tk.m, d))return;
+      if(!isTaskActiveOnDate(tk.m, d)) return;
       activeTasks++;
       var v=S.done[s+'|'+k+'|'+i];
       if(v===undefined){all=false;return;}
-      c+=v;perTask[realIdx]+=v;if(v===3)free++;
+      c+=v;perTask[i]+=v;if(v===3)free++;
     });
     maxPossivel+=activeTasks*3;
     stars+=c;if(activeTasks>0&&all)full++;perDay.push(c);
@@ -516,24 +520,27 @@ function calc(k,days){
     ex.forEach(function(e,i){if(S.bonus[s+'|'+k+'|'+i])bonus+=e.p;});
   });
 
-  return{t:t,el:el,stars:stars,max:maxPossivel,maxNet:maxPossivel+behMax,full:full,free:free,bonus:bonus,at:atBonus,beh:beh,behMax:behMax,pen:pen,perBeh:perBeh,perAt:perAt,perPen:perPen,perDay:perDay,perTask:perTask};
+  return{allTasks:allTasks,tasksOnly:tasksOnly,el:el,stars:stars,max:maxPossivel,maxNet:maxPossivel+behMax,full:full,free:free,bonus:bonus,at:atBonus,beh:beh,behMax:behMax,pen:pen,perBeh:perBeh,perAt:perAt,perPen:perPen,perDay:perDay,perTask:perTask};
 }
 
 function renderRep(app){
   var days=weekDays(),h='<div class="card"><div class="wk"><button class="nav" data-w="-1" aria-label="Semana anterior">‹</button><b>Relatório de '+fmt(days[0])+' a '+fmt(days[6])+' (Dom a Sáb)</b><button class="nav" data-w="1" aria-label="Próxima semana">›</button></div></div>';
   S.kids.forEach(function(kk){
     var k=kk.id;
-    var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
+    var r=calc(k,days);
+    var netSemana = Math.max(0, r.stars + r.beh + r.at - r.pen);
+    var p = r.maxNet ? Math.min(100, Math.round(netSemana / r.maxNet * 100)) : 0;
     
     h+='<div class="card kc" style="'+ks(k)+'"><b style="font-size:1.3rem;color:var(--c)">'+esc(kk.name)+'</b>';
-    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ <b>'+r.stars+'</b> de '+r.max+' estrelas ('+p+'%)<br>✅ Todas tarefas: <b>'+r.full+'</b> de '+r.el+'<br>🙌 Sem pedir: <b>'+r.free+'</b><br>🎁 Extras concluídos: <b>'+r.bonus+' pts (R$ '+r.bonus+',00)</b><br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+'<br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total: <b>'+(r.stars+r.beh+r.bonus+r.at-r.pen)+'</b></p>';
+    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ Tarefas: <b>'+r.stars+'</b> de '+r.max+' estrelas<br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+' pts<br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total da Semana: <b>'+netSemana+' de '+r.maxNet+' pts ('+p+'%)</b><br>🎁 Extras concluídos: <b>'+r.bonus+' pts (R$ '+r.bonus+',00)</b><br>🙌 Feitas sem pedir: <b>'+r.free+'</b></p>';
     h+='<div class="bar"><i style="width:'+p+'%"></i></div>';
     h+='<div class="scroll"><table style="min-width:480px"><tr><th></th>';
     days.forEach(function(d,i){h+='<th>'+DIAS[i]+'</th>';});
     h+='</tr><tr><td class="t">Estrelas por dia</td>';
     r.perDay.forEach(function(c){h+='<td style="text-align:center;font-weight:700">'+(c===null?'–':c)+'</td>';});
     h+='</tr></table></div><p style="margin:10px 0 4px;font-weight:600">Por tarefa</p>';
-    r.t.forEach(function(tk,i){
+    r.allTasks.forEach(function(tk,i){
+      if(tk.h) return;
       var maxT=days.reduce(function(acc,d){return acc+(!isTaskActiveOnDate(tk.m,d)||iso(d)>iso(new Date())?0:3);},0);
       var lbl=modeLabel(tk.m);
       h+='<div class="row" style="color:var(--ink)"><span>'+esc(tk.n)+(lbl?' ('+lbl+')':'')+'</span><span>'+r.perTask[i]+' de '+maxT+' estrelas</span></div>';
@@ -558,9 +565,12 @@ function renderRep(app){
 function buildMsg(days){
   var m='📋 Relatório da semana, '+fmt(days[0])+' a '+fmt(days[6])+'\n';
   S.kids.forEach(function(kk){var k=kk.id;
-    var r=calc(k,days),p=r.max?Math.round(r.stars/r.max*100):0;
-    m+='\n*'+kk.name+'*\n⭐ '+r.stars+' de '+r.max+' estrelas ('+p+'%)\n✅ Todas tarefas em '+r.full+' de '+r.el+' dias\n🙌 Sem pedir: '+r.free+'\n🎁 Extras: '+r.bonus+' pts (R$ '+r.bonus+',00)\n🌟 Atitudes Legais: +'+r.at+'\n🧭 Comportamento: '+r.beh+' de '+r.behMax+'\n⚠️ Atitudes Ruins: −'+r.pen+'\n🏆 Total: '+(r.stars+r.beh+r.bonus+r.at-r.pen)+'\n';
-    r.t.forEach(function(tk,i){
+    var r=calc(k,days);
+    var netSemana = Math.max(0, r.stars + r.beh + r.at - r.pen);
+    var p = r.maxNet ? Math.min(100, Math.round(netSemana / r.maxNet * 100)) : 0;
+    m+='\n*'+kk.name+'*\n⭐ Tarefas: '+r.stars+'/'+r.max+' estrelas\n🧭 Comportamento: '+r.beh+'/'+r.behMax+' pts\n🌟 Atitudes Legais: +'+r.at+'\n⚠️ Atitudes Ruins: −'+r.pen+'\n🏆 Total Geral: '+netSemana+'/'+r.maxNet+' ('+p+'%)\n🎁 Extras: '+r.bonus+' pts (R$ '+r.bonus+',00)\n';
+    r.allTasks.forEach(function(tk,i){
+      if(tk.h) return;
       var maxT=days.reduce(function(acc,d){return acc+(!isTaskActiveOnDate(tk.m,d)||iso(d)>iso(new Date())?0:3);},0);
       m+='• '+tk.n+': '+r.perTask[i]+'/'+maxT+'\n';
     });
