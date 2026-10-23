@@ -49,6 +49,7 @@ td.sec-head{background:var(--soft);color:var(--c);font-weight:700;font-size:1.1r
 .cell:focus-visible,.tab:focus-visible,.nav:focus-visible,.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .bar{height:22px;border-radius:12px;background:var(--soft);overflow:hidden;margin:8px 0 6px}
 .bar i{display:block;height:100%;background:var(--c);border-radius:12px;transition:width .4s}
+.bar.money i{background:#16a34a}
 .row{display:flex;justify-content:space-between;gap:8px;font-size:1rem;color:var(--mut)}
 .reward{margin-top:10px;font-size:1.1rem}
 .reward.ok{color:var(--c);font-weight:700}
@@ -112,7 +113,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:10};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:11};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -177,9 +178,9 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==10||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==10||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==10||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==11||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==11||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==11||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
@@ -188,7 +189,7 @@ function ensure(){
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==10){S.ver=10;save();}
+  if(S.ver!==11){S.ver=11;save();}
 }
 ensure();
 
@@ -269,7 +270,6 @@ function monthSum(k){
     if(day<=todayNum)maxDecor+=(tDay+behDay);
   }
 
-  // Pontuação líquida do mês (obrigações + comportamento + bônus de atitudes - atitudes ruins)
   o.net = Math.max(0, o.tk + o.bh + o.at - o.pn);
   o.maxDecor = maxDecor;
   o.maxTotal = maxTotal;
@@ -282,14 +282,18 @@ function stats(){
   var r=calc(kid,weekDays()),m=monthSum(kid);
   var g=curGoal(kid),w=(S.per==='sem');
   
-  // Total da semana delimitado entre 0 e 100%
-  var wNet = Math.max(0, r.stars + r.beh + r.at - r.pen);
-  var wPct = r.maxNet ? Math.min(100, Math.round(wNet / r.maxNet * 100)) : 0;
+  // Total de pontos conquistados na semana
+  var totalPontosSemana = Math.max(0, r.stars + r.beh + r.at - r.pen);
+  var wPct = r.maxNet ? Math.min(100, Math.round((totalPontosSemana / r.maxNet) * 100)) : 0;
   var extraPoints = w ? r.bonus : m.xm;
 
   return{
-    wk: Math.max(0, r.stars + r.beh),
-    wkMax: r.maxNet,
+    pontosFeitos: totalPontosSemana,
+    pontosMax: r.maxNet,
+    stars: r.stars,
+    starsMax: r.max,
+    beh: r.beh,
+    behMax: r.behMax,
     xb: r.bonus,
     at: r.at,
     pn: r.pen,
@@ -400,7 +404,8 @@ function render(){
   if(pe.length){
     h+='<div class="card"><b>Atitudes Ruins</b> <span class="leg">(descontos marcados pelos pais)</span><div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
-    pe.forEach(function(e,i){h+='<tr><td class="t">'+esc(e.n)+' (−'+e.p+')</td>';
+    pe.forEach(function(e,i){
+      h+='<tr><td class="t">'+esc(e.n)+' (−'+e.p+')</td>';
       days.forEach(function(d){var s=iso(d),c=S.pc[s+'|'+kid+'|'+i]||0;
         h+='<td><button class="cell pn'+(c?' on':'')+(s===td?' td':'')+'" data-d="'+s+'" data-q="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(c?'−'+(c*e.p):'')+'</button></td>';});
       h+='</tr>';});
@@ -410,7 +415,9 @@ function render(){
   if(pm)h+='<div class="pmb">Modo pais ativo. <button class="btn" id="pmx" style="margin-left:8px;padding:6px 12px">Sair</button></div>';
 
   var wp = st.pct;
-  h+='<div class="card"><b>Esta semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div><div class="row"><span>'+st.wk+' de '+st.wkMax+' estrelas'+(st.xb?' + '+st.xb+' extras':'')+(st.at?' + '+st.at+' atitudes':'')+(st.pn?' − '+st.pn+' ruins':'')+'</span><span>'+wp+'%</span></div></div>';
+  h+='<div class="card"><b>Aproveitamento Geral da Semana (Dom a Sáb)</b><div class="bar"><i style="width:'+wp+'%"></i></div>'
+    +'<div class="row"><span><b>'+st.pontosFeitos+'</b> de <b>'+st.pontosMax+'</b> pontos totais'+(st.at?' (+'+st.at+' legais)':'')+(st.pn?' (−'+st.pn+' ruins)':'')+'</span><span><b>'+wp+'%</b></span></div>'
+    +'<div class="row" style="font-size:0.85rem;margin-top:6px;color:var(--mut)"><span>Tarefas: '+st.stars+'/'+st.starsMax+' ⭐ | Comportamento: '+st.beh+'/'+st.behMax+' pts</span></div></div>';
 
   h+='<div class="card"><b>'+(isSem?'Meta da semana':'Meta do mês')+'</b>'
     +'<div class="bar"><i style="width:'+Math.min(100,Math.round(st.pct/st.goal*100))+'%"></i></div>'
@@ -471,12 +478,11 @@ function render(){
 
 function calc(k,days){
   var allTasks=S.tasks[k]||[];
-  var tasksOnly=allTasks.filter(function(item){return !item.h;});
   var td=iso(new Date()),el=0,stars=0,full=0,free=0;
   var bh=S.beh[k]||[],at=S.atitudes[k]||[],pe=S.pen[k]||[];
   var beh=0,behMax=0,atBonus=0,pen=0;
   var perBeh=bh.map(function(){return 0;}),perAt=at.map(function(){return 0;}),perPen=pe.map(function(){return 0;}),perDay=[];
-  var perTask=allTasks.map(function(){return 0;}); // Mapeia exatamente a lista original
+  var perTask=allTasks.map(function(){return 0;});
   var maxPossivel=0;
 
   days.forEach(function(d){
@@ -520,7 +526,25 @@ function calc(k,days){
     ex.forEach(function(e,i){if(S.bonus[s+'|'+k+'|'+i])bonus+=e.p;});
   });
 
-  return{allTasks:allTasks,tasksOnly:tasksOnly,el:el,stars:stars,max:maxPossivel,maxNet:maxPossivel+behMax,full:full,free:free,bonus:bonus,at:atBonus,beh:beh,behMax:behMax,pen:pen,perBeh:perBeh,perAt:perAt,perPen:perPen,perDay:perDay,perTask:perTask};
+  return{
+    allTasks:allTasks,
+    el:el,
+    stars:stars,
+    max:maxPossivel,
+    beh:beh,
+    behMax:behMax,
+    maxNet:maxPossivel+behMax,
+    full:full,
+    free:free,
+    bonus:bonus,
+    at:atBonus,
+    pen:pen,
+    perBeh:perBeh,
+    perAt:perAt,
+    perPen:perPen,
+    perDay:perDay,
+    perTask:perTask
+  };
 }
 
 function renderRep(app){
