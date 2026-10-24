@@ -89,9 +89,9 @@ var base=[
   {n:'Escovar os dentes',m:'all'}
 ];
 
+// Comportamento do dia SEM a duplicação de Atividade Física
 var behD=[
   {n:'Obedecer',p:10},
-  {n:'Atividade física',p:10},
   {n:'Respeitar',p:10},
   {n:'Ser educado',p:10}
 ];
@@ -113,7 +113,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:11};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:12};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -178,9 +178,9 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==11||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==11||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==11||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==12||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==12||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==12||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
@@ -189,7 +189,7 @@ function ensure(){
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==11){S.ver=11;save();}
+  if(S.ver!==12){S.ver=12;save();}
 }
 ensure();
 
@@ -282,7 +282,6 @@ function stats(){
   var r=calc(kid,weekDays()),m=monthSum(kid);
   var g=curGoal(kid),w=(S.per==='sem');
   
-  // Total de pontos conquistados na semana
   var totalPontosSemana = Math.max(0, r.stars + r.beh + r.at - r.pen);
   var wPct = r.maxNet ? Math.min(100, Math.round((totalPontosSemana / r.maxNet) * 100)) : 0;
   var extraPoints = w ? r.bonus : m.xm;
