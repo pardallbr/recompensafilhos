@@ -112,7 +112,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:16};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:17};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -177,9 +177,9 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==16||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==16||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==16||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==17||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==17||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==17||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
@@ -188,7 +188,7 @@ function ensure(){
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==16){S.ver=16;save();}
+  if(S.ver!==17){S.ver=17;save();}
 }
 ensure();
 
@@ -225,11 +225,15 @@ function fmt(d){return d.getDate()+'/'+(d.getMonth()+1);}
 
 function gate(fn){if(pm){fn();return;}pend=true;unlocked=false;view='cfg';render();}
 
+// SEQUÊNCIA DE TOQUES:
+// 1 toque = ⭐3 | 2 toques = ⭐2 | 3 toques = ⭐1 | 4 toques = ✖ 0 | 5 toques = limpa
 function toggle(date,i){
   var key=date+'|'+kid+'|'+i, v=S.done[key];
   if(v === undefined) {
     S.done[key] = 3;
   } else if(v === 3) {
+    S.done[key] = 2;
+  } else if(v === 2) {
     S.done[key] = 1;
   } else if(v === 1) {
     S.done[key] = 0;
@@ -284,7 +288,6 @@ function stats(){
   var r=calc(kid,weekDays()),m=monthSum(kid);
   var g=curGoal(kid),w=(S.per==='sem');
   
-  // MODELO B: O denominador é a semana inteira (7 dias de Dom a Sáb)
   var totalPontosSemana = Math.max(0, r.stars + r.beh + r.at - r.pen);
   var wPct = r.maxNet ? Math.min(100, Math.round((totalPontosSemana / r.maxNet) * 100)) : 0;
   var extraPoints = w ? r.bonus : m.xm;
@@ -425,7 +428,7 @@ function render(){
     +'<div class="row"><span>Progresso da meta: <b>'+st.pct+'%</b> acumulados</span><span>meta: <b>'+st.goal+'%</b></span></div>'
     +'<div class="reward'+(st.goalHit?' ok':'')+'">'+(st.goalHit?'🎉 Meta batida! Recompensa: ':'🎁 Recompensa '+(isSem?'da semana':'do mês')+': ')+esc(rwTxt).replace(/\n/g,'<br>')+'</div>'+(st.goalHit?'<div style="margin-top:10px"><button class="btn p" id="cel2">🎉 Comemorar</button></div>':'')+'</div>';
 
-  h+='<div class="card leg"><b style="color:var(--ink)">Pontuação das Tarefas (Critério Rígido)</b><br>1 toque: ⭐3 (fez sozinho de primeira)<br>2 toques: ⭐1 (precisou pedir)<br>3 toques: ✖ 0 (pediu mais de 1 vez)<br>4 toques: limpa a tarefa</div>';
+  h+='<div class="card leg"><b style="color:var(--ink)">Pontuação das Tarefas</b><br>1 toque: ⭐3 | 2 toques: ⭐2 | 3 toques: ⭐1<br>4 toques: ✖ (0 estrelas) | 5 toques: limpa a tarefa</div>';
   h+='<div class="foot" style="gap:10px;flex-wrap:wrap"><button class="btn" id="rep">Relatório da semana</button><button class="btn" id="cfg">Área dos pais</button></div>';
 
   app.innerHTML=h;
@@ -486,7 +489,6 @@ function calc(k,days){
   var perTask=allTasks.map(function(){return 0;});
   var maxPossivelSemana=0;
 
-  // MODELO B: O denominador conta a semana completa de 7 dias
   days.forEach(function(d){
     var s=iso(d);
     var isFuturo = s > td;
@@ -497,7 +499,6 @@ function calc(k,days){
       if(tk.h) return;
       if(!isTaskActiveOnDate(tk.m, d)) return;
       
-      // Soma no teto total da semana de todos os 7 dias
       maxPossivelSemana += 3;
       activeTasks++;
 
@@ -508,7 +509,6 @@ function calc(k,days){
       c+=v;perTask[i]+=v;if(v===3)free++;
     });
 
-    // Comportamento máximo de todos os 7 dias
     bh.forEach(function(e){
       behMax += e.p;
     });
@@ -576,7 +576,7 @@ function renderRep(app){
     var p = r.maxNet ? Math.min(100, Math.round(netSemana / r.maxNet * 100)) : 0;
     
     h+='<div class="card kc" style="'+ks(k)+'"><b style="font-size:1.3rem;color:var(--c)">'+esc(kk.name)+'</b>';
-    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ Tarefas: <b>'+r.stars+'</b> de '+r.max+' estrelas totais da semana<br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+' pts da semana<br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total da Semana: <b>'+netSemana+' de '+r.maxNet+' pts ('+p+'%)</b><br>🎁 Extras concluídos: <b>'+r.bonus+' pts (R$ '+r.bonus+',00)</b><br>🙌 Feitas sem pedir: <b>'+r.free+'</b></p>';
+    h+='<p style="font-size:1.15rem;margin:8px 0">⭐ Tarefas: <b>'+r.stars+'</b> de '+r.max+' estrelas semanais<br>🧭 Comportamento: <b>'+r.beh+'</b> de '+r.behMax+' pts semanais<br>🌟 Atitudes Legais: <b>+'+r.at+'</b><br>⚠️ Atitudes Ruins: <b>−'+r.pen+'</b><br>🏆 Total da Semana: <b>'+netSemana+' de '+r.maxNet+' pts ('+p+'%)</b><br>🎁 Extras concluídos: <b>'+r.bonus+' pts (R$ '+r.bonus+',00)</b><br>🙌 Feitas sem pedir: <b>'+r.free+'</b></p>';
     h+='<div class="bar"><i style="width:'+p+'%"></i></div>';
     h+='<div class="scroll"><table style="min-width:480px"><tr><th></th>';
     days.forEach(function(d,i){h+='<th>'+DIAS[i]+'</th>';});
