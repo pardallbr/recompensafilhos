@@ -89,7 +89,6 @@ var base=[
   {n:'Escovar os dentes',m:'all'}
 ];
 
-// Comportamento do dia iniciando em 5 pontos
 var behD=[
   {n:'Obedecer',p:5},
   {n:'Respeitar',p:5},
@@ -113,7 +112,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:13};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:14};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -178,9 +177,9 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==13||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==13||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==13||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==14||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==14||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==14||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
@@ -189,7 +188,7 @@ function ensure(){
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==13){S.ver=13;save();}
+  if(S.ver!==14){S.ver=14;save();}
 }
 ensure();
 
@@ -226,8 +225,6 @@ function fmt(d){return d.getDate()+'/'+(d.getMonth()+1);}
 
 function gate(fn){if(pm){fn();return;}pend=true;unlocked=false;view='cfg';render();}
 
-// NOVA REGRA DE TOQUES MAIS DIFÍCIL:
-// 1 toque = 3 (sem pedir) | 2 toques = 1 (pediu 1x) | 3 toques = 0 (pediu + de 1x) | 4 toques = limpa
 function toggle(date,i){
   var key=date+'|'+kid+'|'+i, v=S.done[key];
   if(v === undefined) {
@@ -256,7 +253,7 @@ function monthSum(k){
   for(var a in S.bd){
     var q=a.split('|');
     if(a.indexOf(pre)===0&&q[1]===k&&bh[+q[2]]){
-      o.bh += (S.bd[a] !== undefined ? S.bd[a] : bh[+q[2]].p);
+      o.bh += (S.bd[a] !== undefined ? S.bd[a] : 0);
     }
   }
   for(var a in S.atd){
@@ -374,18 +371,19 @@ function render(){
     h+='</table></div></div>';
   }
 
+  // COMPORTAMENTO DO DIA: Só exibe valor se os pais marcarem
   var bh=S.beh[kid]||[];
   if(bh.length){
-    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(começa em 5; cada toque desconta 1 ponto)</span><div class="scroll"><table><tr><th></th>';
+    h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(toque para avaliar: 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1 ➔ 0 ➔ −1)</span><div class="scroll"><table><tr><th></th>';
     days.forEach(function(d,i){h+='<th class="'+(iso(d)===td?'today':'')+'">'+DIAS[i]+'</th>';});h+='</tr>';
     bh.forEach(function(e,i){
-      h+='<tr><td class="t">'+esc(e.n)+' (base: '+e.p+')</td>';
+      h+='<tr><td class="t">'+esc(e.n)+' (máx: '+e.p+')</td>';
       days.forEach(function(d){
         var s=iso(d),key=s+'|'+kid+'|'+i;
-        var val = (S.bd[key] !== undefined) ? S.bd[key] : e.p;
-        var isModified = (S.bd[key] !== undefined);
-        var isNeg = val < 0;
-        h+='<td><button class="cell bh'+(isModified?' on':'')+(isNeg?' neg':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+val+'</button></td>';
+        var hasVal = (S.bd[key] !== undefined);
+        var val = hasVal ? S.bd[key] : '';
+        var isNeg = hasVal && val < 0;
+        h+='<td><button class="cell bh'+(hasVal?' on':'')+(isNeg?' neg':'')+(s===td?' td':'')+'" data-d="'+s+'" data-b="'+i+'"'+(s>td?' disabled':'')+' aria-label="'+esc(e.n)+'">'+(hasVal ? val : '+'+e.p)+'</button></td>';
       });
       h+='</tr>';
     });
@@ -435,7 +433,7 @@ function render(){
   }
   h+='<div class="reward'+(st.goalHit?' ok':'')+'">'+(st.goalHit?'🎉 Meta batida! Recompensa: ':'🎁 Recompensa '+(isSem?'da semana':'do mês')+': ')+esc(rwTxt).replace(/\n/g,'<br>')+'</div>'+(st.goalHit?'<div style="margin-top:10px"><button class="btn p" id="cel2">🎉 Comemorar</button></div>':'')+'</div>';
 
-  h+='<div class="card leg"><b style="color:var(--ink)">Pontuação das Tarefas (Novo Critério)</b><br>1 toque: ⭐3 (fez sozinho de primeira)<br>2 toques: ⭐1 (precisou pedir)<br>3 toques: ✖ 0 (pediu mais de 1 vez)<br>4 toques: limpa a tarefa</div>';
+  h+='<div class="card leg"><b style="color:var(--ink)">Pontuação das Tarefas (Critério Rígido)</b><br>1 toque: ⭐3 (fez sozinho de primeira)<br>2 toques: ⭐1 (precisou pedir)<br>3 toques: ✖ 0 (pediu mais de 1 vez)<br>4 toques: limpa a tarefa</div>';
   h+='<div class="foot" style="gap:10px;flex-wrap:wrap"><button class="btn" id="rep">Relatório da semana</button><button class="btn" id="cfg">Área dos pais</button></div>';
 
   app.innerHTML=h;
@@ -450,17 +448,21 @@ function render(){
   app.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){off+=+b.dataset.w;render();};});
   app.querySelectorAll('.cell:not(.xb):not(.bh):not(.atd):not(.pn):not(.off)').forEach(function(b){b.onclick=function(){toggle(b.dataset.d,b.dataset.i);};});
   
+  // AO CLICAR NO COMPORTAMENTO: Se estiver vazio, define 5. Se já tiver valor, vai diminuindo.
   app.querySelectorAll('.bh').forEach(function(b){
     b.onclick=function(){
       gate(function(){
         var key=b.dataset.d+'|'+kid+'|'+b.dataset.b;
         var baseP = S.beh[kid][+b.dataset.b].p;
-        var cur = (S.bd[key] !== undefined) ? S.bd[key] : baseP;
-        cur--;
-        if(cur < -10){
-          delete S.bd[key];
+        if(S.bd[key] === undefined){
+          S.bd[key] = baseP; // 1º toque confirma nota cheia (5)
         } else {
-          S.bd[key] = cur;
+          var cur = S.bd[key] - 1;
+          if(cur < -5){
+            delete S.bd[key]; // limpa após -5
+          } else {
+            S.bd[key] = cur;
+          }
         }
         save();render();
       });
@@ -511,9 +513,12 @@ function calc(k,days){
 
     bh.forEach(function(e,i){
       behMax += e.p;
-      var curVal = (S.bd[s+'|'+k+'|'+i] !== undefined) ? S.bd[s+'|'+k+'|'+i] : e.p;
-      beh += curVal;
-      perBeh[i] += curVal;
+      // Só pontua se os pais tiverem avaliado o dia!
+      if(S.bd[s+'|'+k+'|'+i] !== undefined){
+        var curVal = S.bd[s+'|'+k+'|'+i];
+        beh += curVal;
+        perBeh[i] += curVal;
+      }
     });
 
     at.forEach(function(e,i){
