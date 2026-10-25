@@ -77,7 +77,7 @@ var base=[
   {h:'Tarde'},
   {n:'Escovar os dentes',m:'all'},
   {n:'Dobrar uniforme',m:'seg-sex'},
-  {n:'Lancheira',m:'dom-qui'},
+  {n:'Lancheira',m:'seg-sex'},
   {n:'Fazer dever/trabalhos',m:'seg-sex'},
   {n:'Atividade Física',m:'all'},
   {h:'Noite'},
@@ -112,7 +112,7 @@ var exb=[
   {n:'Ajudar a lavar o carro',p:3}
 ];
 
-var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:14};
+var S={tasks:{},rewardsM:{},rewardsS:{},goals:{},done:{},extras:{},bonus:{},beh:{},atitudes:{},pen:{},bd:{},atd:{},pc:{},pin:'1234',per:'sem',ver:15};
 try{
   var raw=localStorage.getItem(KEY);
   if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k];}
@@ -177,9 +177,9 @@ function ensure(){
   if(!S.bonus)S.bonus={};
   
   S.kids.forEach(function(k){
-    if(S.ver!==14||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
-    if(S.ver!==14||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
-    if(S.ver!==14||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
+    if(S.ver!==15||!S.tasks[k.id]){S.tasks[k.id]=base.slice();}
+    if(S.ver!==15||!S.beh[k.id]){S.beh[k.id]=behD.slice();}
+    if(S.ver!==15||!S.atitudes[k.id]){S.atitudes[k.id]=atitudesD.slice();}
     if(!S.rewardsS[k.id]||/r\$\s*20/i.test(S.rewardsS[k.id])){
       S.rewardsS[k.id]='Passeio ou atividade especial em família';
     }
@@ -188,7 +188,7 @@ function ensure(){
     if(!S.extras[k.id])S.extras[k.id]=exb.slice();
     if(!S.pen[k.id])S.pen[k.id]=penD.slice();
   });
-  if(S.ver!==14){S.ver=14;save();}
+  if(S.ver!==15){S.ver=15;save();}
 }
 ensure();
 
@@ -371,7 +371,6 @@ function render(){
     h+='</table></div></div>';
   }
 
-  // COMPORTAMENTO DO DIA: Só exibe valor se os pais marcarem
   var bh=S.beh[kid]||[];
   if(bh.length){
     h+='<div class="card"><b>Comportamento do dia</b> <span class="leg">(toque para avaliar: 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1 ➔ 0 ➔ −1)</span><div class="scroll"><table><tr><th></th>';
@@ -448,18 +447,17 @@ function render(){
   app.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){off+=+b.dataset.w;render();};});
   app.querySelectorAll('.cell:not(.xb):not(.bh):not(.atd):not(.pn):not(.off)').forEach(function(b){b.onclick=function(){toggle(b.dataset.d,b.dataset.i);};});
   
-  // AO CLICAR NO COMPORTAMENTO: Se estiver vazio, define 5. Se já tiver valor, vai diminuindo.
   app.querySelectorAll('.bh').forEach(function(b){
     b.onclick=function(){
       gate(function(){
         var key=b.dataset.d+'|'+kid+'|'+b.dataset.b;
         var baseP = S.beh[kid][+b.dataset.b].p;
         if(S.bd[key] === undefined){
-          S.bd[key] = baseP; // 1º toque confirma nota cheia (5)
+          S.bd[key] = baseP;
         } else {
           var cur = S.bd[key] - 1;
           if(cur < -5){
-            delete S.bd[key]; // limpa após -5
+            delete S.bd[key];
           } else {
             S.bd[key] = cur;
           }
@@ -513,7 +511,6 @@ function calc(k,days){
 
     bh.forEach(function(e,i){
       behMax += e.p;
-      // Só pontua se os pais tiverem avaliado o dia!
       if(S.bd[s+'|'+k+'|'+i] !== undefined){
         var curVal = S.bd[s+'|'+k+'|'+i];
         beh += curVal;
